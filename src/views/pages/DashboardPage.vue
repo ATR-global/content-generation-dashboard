@@ -38,24 +38,18 @@
                 <i class="pi pi-circle-fill"></i> Online
               </span>
             </div>
-            <div class="card-body">
-              <div class="stats-grid">
-                <div class="stat-item">
-                  <span class="stat-value">{{ totalManuals }}</span>
-                  <span class="stat-label">Total Manuals</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-value stat-value--success">{{ chartData.values[4] }}</span>
-                  <span class="stat-label">Done</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-value stat-value--brand">{{ chartData.values[2] }}</span>
-                  <span class="stat-label">Content Ready</span>
-                </div>
-                <div class="stat-item">
-                  <span class="stat-value stat-value--warning">{{ chartData.values[0] }}</span>
-                  <span class="stat-label">Pending</span>
-                </div>
+            <div class="card-body chart-container">
+              <canvas ref="refreshChartCanvas"></canvas>
+            </div>
+            <div class="chart-legend">
+              <div
+                v-for="(label, i) in refreshChartData.labels"
+                :key="'refresh-' + label"
+                class="legend-item"
+              >
+                <span class="legend-dot" :style="{ background: refreshChartColors[i] }"></span>
+                <span class="legend-label">{{ label }}</span>
+                <span class="legend-value">{{ refreshChartData.values[i] }}</span>
               </div>
             </div>
           </div>
@@ -87,19 +81,53 @@ const chartColors = [
   '#8b5cf6', // Incorrect Manual - purple
 ];
 
+const refreshChartData = {
+  labels: [
+    'Pending',
+    'Processing',
+    'Content Ready',
+    'Content Error',
+    'For Review',
+    'Done',
+    'Failed',
+    'Error',
+    'Incorrect Manual',
+  ],
+  values: [145, 38, 184, 53, 200, 612, 24, 15, 68],
+};
+
+const refreshChartColors = [
+  '#f59e0b', // Pending - amber
+  '#3b82f6', // Processing - blue
+  '#0077e6', // Content Ready - brand blue
+  '#ef4444', // Content Error - red
+  '#00c7e6', // For Review - secondary teal
+  '#20501e', // Done - success green
+  '#dc2626', // Failed - dark red
+  '#f97316', // Error - orange
+  '#8b5cf6', // Incorrect Manual - purple
+];
+
+const totalRefresh = refreshChartData.values.reduce((a, b) => a + b, 0);
+
 const pieChartCanvas = ref<HTMLCanvasElement | null>(null);
+const refreshChartCanvas = ref<HTMLCanvasElement | null>(null);
 
-onMounted(() => {
-  if (!pieChartCanvas.value) return;
-
-  new Chart(pieChartCanvas.value, {
+function createDoughnut(
+  canvas: HTMLCanvasElement,
+  labels: string[],
+  values: number[],
+  colors: string[],
+  total: number,
+) {
+  new Chart(canvas, {
     type: 'doughnut',
     data: {
-      labels: chartData.labels,
+      labels,
       datasets: [
         {
-          data: chartData.values,
-          backgroundColor: chartColors,
+          data: values,
+          backgroundColor: colors,
           borderWidth: 2,
           borderColor: '#ffffff',
         },
@@ -110,14 +138,12 @@ onMounted(() => {
       maintainAspectRatio: false,
       cutout: '55%',
       plugins: {
-        legend: {
-          display: false,
-        },
+        legend: { display: false },
         tooltip: {
           callbacks: {
             label(context) {
               const value = context.parsed;
-              const pct = ((value / totalManuals) * 100).toFixed(1);
+              const pct = ((value / total) * 100).toFixed(1);
               return `${context.label}: ${value} (${pct}%)`;
             },
           },
@@ -125,6 +151,15 @@ onMounted(() => {
       },
     },
   });
+}
+
+onMounted(() => {
+  if (pieChartCanvas.value) {
+    createDoughnut(pieChartCanvas.value, chartData.labels, chartData.values, chartColors, totalManuals);
+  }
+  if (refreshChartCanvas.value) {
+    createDoughnut(refreshChartCanvas.value, refreshChartData.labels, refreshChartData.values, refreshChartColors, totalRefresh);
+  }
 });
 </script>
 

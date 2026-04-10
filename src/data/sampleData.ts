@@ -94,7 +94,7 @@ export const sampleManuals: ManualRecord[] = [
     wpPostUrl:
       'https://stagingnew.allusermanuals.com/wp-admin/post.php?post=28359&action=edit',
     score: 8.89,
-    status: 'content_ready',
+    status: 'for_review',
     title: 'GE Range JGB735SP1SS Owner\'s Manual & Troubleshooting Guide',
     previewThumbnails: [
       'https://nyc3.digitaloceanspaces.com/allusermanuals/img/ge-range-jgb735sp1ss-product-manual-preview-1.png',
@@ -156,7 +156,7 @@ export const sampleManuals: ManualRecord[] = [
     wpPostUrl:
       'https://stagingnew.allusermanuals.com/wp-admin/post.php?post=28429&action=edit',
     score: 8.9,
-    status: 'content_ready',
+    status: 'for_review',
     title: 'GE Range PB965YP5FS Owner\'s Manual & Troubleshooting Guide',
     previewThumbnails: [
       'https://nyc3.digitaloceanspaces.com/allusermanuals/img/ge-range-pb965yp5fs-product-manual-preview-1.png',
@@ -477,6 +477,7 @@ export const allStatuses = [
   'processing',
   'content_ready',
   'content_error',
+  'for_review',
   'done',
   'failed',
   'error',
@@ -490,6 +491,7 @@ export const statusLabels: Record<string, string> = {
   processing: 'Processing',
   content_ready: 'Content Ready',
   content_error: 'Content Error',
+  for_review: 'For Review',
   done: 'Done',
   failed: 'Failed',
   error: 'Error',

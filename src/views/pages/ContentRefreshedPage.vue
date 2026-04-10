@@ -17,6 +17,14 @@
           </button>
           <button
             class="tab-btn"
+            :class="{ active: activeTab === 'for_review' }"
+            @click="activeTab = 'for_review'"
+          >
+            For Review
+            <span class="tab-count">{{ forReviewRecords.length }}</span>
+          </button>
+          <button
+            class="tab-btn"
             :class="{ active: activeTab === 'published' }"
             @click="activeTab = 'published'"
           >
@@ -25,7 +33,7 @@
           </button>
         </div>
 
-        <!-- Toolbar: Search + Filter + Publish -->
+        <!-- Toolbar: Search + Filter + Bulk action -->
         <div class="toolbar">
           <div class="toolbar-left">
             <div class="search-box">
@@ -37,7 +45,7 @@
                 class="search-input"
               />
             </div>
-            <select v-model="statusFilter" class="filter-select">
+            <select v-if="activeTab === 'unpublished'" v-model="statusFilter" class="filter-select">
               <option value="">All Statuses</option>
               <option v-for="s in allStatuses" :key="s" :value="s">
                 {{ statusLabels[s] }}
@@ -47,8 +55,16 @@
           <div class="toolbar-right">
             <button
               v-if="activeTab === 'unpublished' && selectedIds.length > 0"
+              class="redo-btn"
+              @click="showRedoConfirm = true"
+            >
+              <i class="pi pi-refresh"></i>
+              Redo Content ({{ selectedIds.length }})
+            </button>
+            <button
+              v-if="activeTab === 'for_review' && selectedIds.length > 0"
               class="publish-btn"
-              @click="handlePublish"
+              @click="showPublishConfirm = true"
             >
               <i class="pi pi-upload"></i>
               Publish Selected ({{ selectedIds.length }})
@@ -61,7 +77,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th v-if="activeTab === 'unpublished'" class="col-checkbox">
+                <th v-if="hasCheckbox" class="col-checkbox">
                   <input
                     type="checkbox"
                     :checked="allVisibleSelected"
@@ -80,7 +96,7 @@
             </thead>
             <tbody>
               <tr v-for="row in paginatedRecords" :key="row.id">
-                <td v-if="activeTab === 'unpublished'" class="col-checkbox">
+                <td v-if="hasCheckbox" class="col-checkbox">
                   <input
                     type="checkbox"
                     :checked="selectedIds.includes(row.id)"
@@ -114,17 +130,25 @@
                     <i class="pi pi-eye"></i>
                   </button>
                   <a
+                    :href="row.pageUrl"
+                    target="_blank"
+                    class="action-btn"
+                    title="Open Page"
+                  >
+                    <i class="pi pi-globe"></i>
+                  </a>
+                  <a
                     :href="row.wpPostUrl"
                     target="_blank"
                     class="action-btn"
-                    title="Open in WordPress"
+                    title="Edit in WordPress"
                   >
-                    <i class="pi pi-external-link"></i>
+                    <i class="pi pi-pencil"></i>
                   </a>
                 </td>
               </tr>
               <tr v-if="paginatedRecords.length === 0">
-                <td :colspan="activeTab === 'unpublished' ? 9 : 8" class="empty-row">
+                <td :colspan="hasCheckbox ? 9 : 8" class="empty-row">
                   No records found.
                 </td>
               </tr>
@@ -340,9 +364,45 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer" v-if="activeTab === 'unpublished'">
+        <div class="modal-footer" v-if="activeTab !== 'published'">
           <button class="btn-ghost" @click="closeModal">Cancel</button>
           <button class="btn-primary" @click="saveModal">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Publish Confirmation Modal -->
+    <div v-if="showPublishConfirm" class="modal-overlay" @click.self="showPublishConfirm = false">
+      <div class="confirm-panel">
+        <div class="confirm-icon confirm-icon--publish">
+          <i class="pi pi-upload"></i>
+        </div>
+        <h3 class="confirm-title">Publish Selected Items</h3>
+        <p class="confirm-text">
+          You are about to publish <strong>{{ selectedIds.length }}</strong>
+          {{ selectedIds.length === 1 ? 'item' : 'items' }}. This will make them live on the website.
+        </p>
+        <div class="confirm-actions">
+          <button class="btn-ghost" @click="showPublishConfirm = false">Cancel</button>
+          <button class="btn-primary" @click="confirmPublish">Publish</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Redo Content Confirmation Modal -->
+    <div v-if="showRedoConfirm" class="modal-overlay" @click.self="showRedoConfirm = false">
+      <div class="confirm-panel">
+        <div class="confirm-icon confirm-icon--redo">
+          <i class="pi pi-refresh"></i>
+        </div>
+        <h3 class="confirm-title">Redo Content</h3>
+        <p class="confirm-text">
+          You are about to redo content generation for <strong>{{ selectedIds.length }}</strong>
+          {{ selectedIds.length === 1 ? 'item' : 'items' }}. The existing content will be regenerated.
+        </p>
+        <div class="confirm-actions">
+          <button class="btn-ghost" @click="showRedoConfirm = false">Cancel</button>
+          <button class="btn-warning" @click="confirmRedo">Redo Content</button>
         </div>
       </div>
     </div>
@@ -359,30 +419,44 @@ import {
   type ManualRecord,
 } from '@/data/sampleData';
 
-const activeTab = ref<'unpublished' | 'published'>('unpublished');
+type TabType = 'unpublished' | 'for_review' | 'published';
+
+const activeTab = ref<TabType>('unpublished');
 const searchQuery = ref('');
 const statusFilter = ref('');
 const selectedIds = ref<number[]>([]);
 const currentPage = ref(1);
 const pageSize = 50;
 const modalRecord = ref<ManualRecord | null>(null);
+const showPublishConfirm = ref(false);
+const showRedoConfirm = ref(false);
 
-// Split records: done = published, everything else = unpublished
+// Unpublished: everything except done and for_review
 const unpublishedRecords = computed(() =>
-  sampleManuals.filter((r) => r.status !== 'done'),
+  sampleManuals.filter((r) => r.status !== 'done' && r.status !== 'for_review'),
 );
+// For Review: only for_review status
+const forReviewRecords = computed(() =>
+  sampleManuals.filter((r) => r.status === 'for_review'),
+);
+// Published: only done
 const publishedRecords = computed(() =>
   sampleManuals.filter((r) => r.status === 'done'),
 );
 
-const activeRecords = computed(() =>
-  activeTab.value === 'unpublished' ? unpublishedRecords.value : publishedRecords.value,
-);
+// Checkboxes on unpublished and for_review tabs
+const hasCheckbox = computed(() => activeTab.value !== 'published');
+
+const activeRecords = computed(() => {
+  if (activeTab.value === 'for_review') return forReviewRecords.value;
+  if (activeTab.value === 'published') return publishedRecords.value;
+  return unpublishedRecords.value;
+});
 
 const filteredRecords = computed(() => {
   let records = activeRecords.value;
 
-  if (statusFilter.value) {
+  if (statusFilter.value && activeTab.value === 'unpublished') {
     records = records.filter((r) => r.status === statusFilter.value);
   }
 
@@ -439,8 +513,16 @@ function toggleSelectAll() {
   }
 }
 
-function handlePublish() {
+function confirmPublish() {
   // No-op for now; would call backend API
+  showPublishConfirm.value = false;
+  selectedIds.value = [];
+}
+
+function confirmRedo() {
+  // No-op for now; would call backend API
+  showRedoConfirm.value = false;
+  selectedIds.value = [];
 }
 
 function scoreClass(score: number) {
@@ -450,7 +532,6 @@ function scoreClass(score: number) {
 }
 
 function openModal(record: ManualRecord) {
-  // Deep clone to allow editing without mutating source
   modalRecord.value = JSON.parse(JSON.stringify(record));
 }
 
@@ -610,6 +691,25 @@ function saveModal() {
   background: var(--color-brand-hover);
 }
 
+.redo-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  background: #f59e0b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.redo-btn:hover {
+  background: #d97706;
+}
+
 /* Table */
 .table-container {
   background: var(--color-white);
@@ -681,7 +781,9 @@ function saveModal() {
 }
 
 .col-actions {
-  width: 90px;
+  width: 120px;
+  display: flex;
+  gap: 6px;
 }
 
 .title-cell {
@@ -755,6 +857,11 @@ function saveModal() {
 .status--content_error {
   background: #fef2f2;
   color: #dc2626;
+}
+
+.status--for_review {
+  background: #e0f7fa;
+  color: #00838f;
 }
 
 .status--done {
@@ -853,7 +960,7 @@ function saveModal() {
   padding: 0 8px;
 }
 
-/* Modal */
+/* Edit Modal */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1091,6 +1198,62 @@ function saveModal() {
   border-top: 1px solid var(--color-border);
 }
 
+/* Confirmation Modal */
+.confirm-panel {
+  background: var(--color-white);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 440px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(10, 37, 64, 0.2);
+  text-align: center;
+  margin-top: 120px;
+}
+
+.confirm-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.confirm-icon .pi {
+  font-size: 24px;
+}
+
+.confirm-icon--publish {
+  background: #ebf5ff;
+  color: var(--color-brand);
+}
+
+.confirm-icon--redo {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.confirm-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 0 8px 0;
+}
+
+.confirm-text {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
 .btn-primary {
   padding: 8px 20px;
   background: var(--color-brand);
@@ -1104,6 +1267,21 @@ function saveModal() {
 
 .btn-primary:hover {
   background: var(--color-brand-hover);
+}
+
+.btn-warning {
+  padding: 8px 20px;
+  background: #f59e0b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-warning:hover {
+  background: #d97706;
 }
 
 .btn-ghost {
