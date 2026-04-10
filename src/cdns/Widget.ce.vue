@@ -1,0 +1,13 @@
+<template>
+  <section class="widget">
+    <p>Starter widget content</p>
+  </section>
+</template>
+
+<style scoped>
+.widget {
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+}
+</style>

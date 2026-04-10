@@ -1,0 +1,55 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #0f1729;
+  background-color: #f8fafc;
+
+  /* Brand Colors */
+  --color-primary: #0a2540;
+  --color-brand: #0077e6;
+  --color-brand-hover: #0059e6;
+  --color-secondary: #00c7e6;
+  --color-accent: #3f6b97;
+  --color-accent-light: #e6f7ff;
+  --color-text: #0f1729;
+  --color-text-muted: #637288;
+  --color-white: #ffffff;
+  --color-bg: #f8fafc;
+  --color-bg-section: #f4f4f4;
+  --color-border: #e1e7ef;
+  --color-highlight: #ebf5ff;
+
+  /* Status Colors */
+  --color-success: #20501e;
+  --color-warning: #f90;
+  --color-info: #0077e6;
+  --color-neutral: #69727d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+/* PrimeVue overrides for brand consistency */
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--color-bg-section);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  background: var(--color-white);
+  border-color: var(--color-border);
+}
+
+.p-datatable .p-datatable-tbody > tr:hover {
+  background: var(--color-highlight);
+}
+
+.p-paginator {
+  border: none;
+  background: transparent;
+}
