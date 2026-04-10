@@ -6,7 +6,7 @@
         <h1 class="page-title">Dashboard</h1>
 
         <div class="cards-grid">
-          <!-- Manual Ingestion Status -->
+          <!-- Manual Ingestion Status (disabled for now)
           <div class="card">
             <div class="card-header">
               <h2 class="card-title">Manual Ingestion Status</h2>
@@ -29,6 +29,7 @@
               </div>
             </div>
           </div>
+          -->
 
           <!-- Page Content Refresh Status -->
           <div class="card">
@@ -110,7 +111,7 @@ const refreshChartColors = [
 
 const totalRefresh = refreshChartData.values.reduce((a, b) => a + b, 0);
 
-const pieChartCanvas = ref<HTMLCanvasElement | null>(null);
+// const pieChartCanvas = ref<HTMLCanvasElement | null>(null);
 const refreshChartCanvas = ref<HTMLCanvasElement | null>(null);
 
 function createDoughnut(
@@ -154,9 +155,9 @@ function createDoughnut(
 }
 
 onMounted(() => {
-  if (pieChartCanvas.value) {
-    createDoughnut(pieChartCanvas.value, chartData.labels, chartData.values, chartColors, totalManuals);
-  }
+  // if (pieChartCanvas.value) {
+  //   createDoughnut(pieChartCanvas.value, chartData.labels, chartData.values, chartColors, totalManuals);
+  // }
   if (refreshChartCanvas.value) {
     createDoughnut(refreshChartCanvas.value, refreshChartData.labels, refreshChartData.values, refreshChartColors, totalRefresh);
   }
