@@ -84,12 +84,21 @@
                     @change="toggleSelectAll"
                   />
                 </th>
-                <th class="col-id">ID</th>
+                <th class="col-id sortable-th" @click="toggleSort('id')">
+                  ID
+                  <i v-if="sortField === 'id'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down'"></i>
+                </th>
                 <th class="col-title">Title</th>
-                <th class="col-score">Score</th>
+                <th class="col-score sortable-th" @click="toggleSort('score')">
+                  Score
+                  <i v-if="sortField === 'score'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down'"></i>
+                </th>
                 <th class="col-status">Status</th>
                 <th class="col-type">Appliance Type</th>
-                <th class="col-pages">Pages</th>
+                <th class="col-pages sortable-th" @click="toggleSort('metaPages')">
+                  Pages
+                  <i v-if="sortField === 'metaPages'" class="pi" :class="sortDir === 'asc' ? 'pi-sort-amount-up' : 'pi-sort-amount-down'"></i>
+                </th>
                 <th class="col-lang">Language</th>
                 <th class="col-actions">Actions</th>
               </tr>
@@ -106,9 +115,18 @@
                 <td class="col-id">{{ row.id }}</td>
                 <td class="col-title">
                   <div class="title-cell">
-                    <a :href="row.pageUrl" target="_blank" class="title-link">
-                      {{ row.title }}
-                    </a>
+                    <div class="title-row">
+                      <a :href="row.pageUrl" target="_blank" class="title-link">
+                        {{ row.title }}
+                      </a>
+                      <span
+                        v-if="row.contentIssuesRecommendations"
+                        class="issues-badge"
+                        title="Has content issues / recommendations"
+                      >
+                        <i class="pi pi-exclamation-triangle"></i>
+                      </span>
+                    </div>
                     <span class="title-meta">WP #{{ row.wpPageId }}</span>
                   </div>
                 </td>
@@ -430,6 +448,8 @@ const pageSize = 50;
 const modalRecord = ref<ManualRecord | null>(null);
 const showPublishConfirm = ref(false);
 const showRedoConfirm = ref(false);
+const sortField = ref<'id' | 'score' | 'metaPages' | null>(null);
+const sortDir = ref<'asc' | 'desc'>('asc');
 
 // Unpublished: everything except done and for_review
 const unpublishedRecords = computed(() =>
@@ -471,6 +491,12 @@ const filteredRecords = computed(() => {
     );
   }
 
+  if (sortField.value) {
+    const field = sortField.value;
+    const dir = sortDir.value === 'asc' ? 1 : -1;
+    records = [...records].sort((a, b) => (a[field] - b[field]) * dir);
+  }
+
   return records;
 });
 
@@ -493,6 +519,27 @@ watch([activeTab, searchQuery, statusFilter], () => {
   currentPage.value = 1;
   selectedIds.value = [];
 });
+
+// Reset sort on tab change
+watch(activeTab, () => {
+  sortField.value = null;
+});
+
+function toggleSort(field: 'id' | 'score' | 'metaPages') {
+  if (sortField.value === field) {
+    if (sortDir.value === 'asc') {
+      sortDir.value = 'desc';
+    } else {
+      // Third click clears sort
+      sortField.value = null;
+      sortDir.value = 'asc';
+    }
+  } else {
+    sortField.value = field;
+    sortDir.value = 'asc';
+  }
+  currentPage.value = 1;
+}
 
 function toggleSelect(id: number) {
   const idx = selectedIds.value.indexOf(id);
@@ -786,10 +833,38 @@ function saveModal() {
   gap: 6px;
 }
 
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable-th:hover {
+  color: var(--color-brand);
+}
+
+.sortable-th .pi {
+  font-size: 11px;
+  margin-left: 4px;
+}
+
 .title-cell {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.issues-badge {
+  display: inline-flex;
+  align-items: center;
+  color: #d97706;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .title-link {

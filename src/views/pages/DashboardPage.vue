@@ -5,6 +5,48 @@
       <div class="dashboard-content">
         <h1 class="page-title">Dashboard</h1>
 
+        <!-- KPI Summary Cards -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-icon--total">
+              <i class="pi pi-book"></i>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ totalRefresh.toLocaleString() }}</span>
+              <span class="kpi-label">Total Manuals</span>
+            </div>
+          </div>
+          <router-link to="/content-refreshed" class="kpi-card kpi-card--link">
+            <div class="kpi-icon kpi-icon--review">
+              <i class="pi pi-eye"></i>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ forReviewCount }}</span>
+              <span class="kpi-label">For Review</span>
+            </div>
+            <i class="pi pi-arrow-right kpi-arrow"></i>
+          </router-link>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-icon--errors">
+              <i class="pi pi-exclamation-triangle"></i>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ errorCount }}</span>
+              <span class="kpi-label">Needs Attention</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-icon--score">
+              <i class="pi pi-star"></i>
+            </div>
+            <div class="kpi-info">
+              <span class="kpi-value">{{ avgScore }}</span>
+              <span class="kpi-label">Avg. Score</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main grid: Chart + Needs Attention -->
         <div class="cards-grid">
           <!-- Manual Ingestion Status (disabled for now)
           <div class="card">
@@ -54,6 +96,82 @@
               </div>
             </div>
           </div>
+
+          <!-- Needs Attention -->
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Needs Attention</h2>
+              <span class="attention-count">{{ attentionItems.length }} items</span>
+            </div>
+            <div class="card-body card-body--flush">
+              <div v-if="attentionItems.length === 0" class="empty-state">
+                <i class="pi pi-check-circle empty-state-icon"></i>
+                <span>No items need attention</span>
+              </div>
+              <div v-else class="attention-list">
+                <div
+                  v-for="item in attentionItems"
+                  :key="item.id"
+                  class="attention-row"
+                >
+                  <span class="status-tag" :class="'status--' + item.status">
+                    {{ statusLabels[item.status] || item.status }}
+                  </span>
+                  <span class="attention-title" :title="item.title">{{ item.title }}</span>
+                  <span class="attention-score" :class="scoreClass(item.score)">
+                    {{ item.score }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div v-if="attentionItems.length > 0" class="card-footer">
+              <router-link to="/content-refreshed" class="view-all-link">
+                View all in Content Refreshed Pages
+                <i class="pi pi-arrow-right"></i>
+              </router-link>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card card--full">
+          <div class="card-header">
+            <h2 class="card-title">Recent Activity</h2>
+            <span class="card-subtitle">Latest processed manuals</span>
+          </div>
+          <div class="card-body card-body--flush">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Type</th>
+                  <th>Pages</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in recentItems" :key="item.id">
+                  <td class="mini-title-cell">
+                    <span class="mini-title">{{ item.title }}</span>
+                    <span class="mini-meta">ID {{ item.id }} &middot; WP #{{ item.wpPageId }}</span>
+                  </td>
+                  <td>
+                    <span class="status-tag" :class="'status--' + item.status">
+                      {{ statusLabels[item.status] || item.status }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="score-badge" :class="'score--' + scoreClass(item.score)">
+                      {{ item.score }}
+                    </span>
+                  </td>
+                  <td class="mini-muted">{{ item.metaApplianceType }}</td>
+                  <td class="mini-muted">{{ item.metaPages }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </main>
@@ -64,7 +182,7 @@
 import { ref, onMounted } from 'vue';
 import { Chart, ArcElement, Tooltip, Legend, DoughnutController } from 'chart.js';
 import AppHeader from '@/components/common/AppHeader.vue';
-import { pieChartData } from '@/data/sampleData';
+import { pieChartData, sampleManuals, statusLabels } from '@/data/sampleData';
 
 Chart.register(ArcElement, Tooltip, Legend, DoughnutController);
 
@@ -110,6 +228,32 @@ const refreshChartColors = [
 ];
 
 const totalRefresh = refreshChartData.values.reduce((a, b) => a + b, 0);
+
+// KPI computations
+const forReviewCount = refreshChartData.values[4]; // For Review
+const errorCount =
+  refreshChartData.values[3] + // Content Error
+  refreshChartData.values[6] + // Failed
+  refreshChartData.values[7] + // Error
+  refreshChartData.values[8]; // Incorrect Manual
+
+const avgScore =
+  sampleManuals.length > 0
+    ? (sampleManuals.reduce((sum, m) => sum + m.score, 0) / sampleManuals.length).toFixed(2)
+    : '—';
+
+// Needs Attention: items with problematic statuses
+const attentionStatuses = new Set(['content_error', 'failed', 'error', 'incorrect_manual']);
+const attentionItems = sampleManuals.filter((m) => attentionStatuses.has(m.status));
+
+// Recent Activity: all sample items sorted by ID descending (simulating recency)
+const recentItems = [...sampleManuals].sort((a, b) => b.id - a.id).slice(0, 7);
+
+function scoreClass(score: number): string {
+  if (score >= 8.5) return 'high';
+  if (score >= 7.0) return 'mid';
+  return 'low';
+}
 
 // const pieChartCanvas = ref<HTMLCanvasElement | null>(null);
 const refreshChartCanvas = ref<HTMLCanvasElement | null>(null);
@@ -183,10 +327,104 @@ onMounted(() => {
   margin: 0 0 24px 0;
 }
 
+/* KPI Cards */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: box-shadow 0.15s;
+}
+
+.kpi-card--link {
+  cursor: pointer;
+}
+
+.kpi-card--link:hover {
+  box-shadow: 0 2px 12px rgba(0, 119, 230, 0.1);
+  border-color: var(--color-brand);
+}
+
+.kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-icon .pi {
+  font-size: 18px;
+}
+
+.kpi-icon--total {
+  background: #ebf5ff;
+  color: var(--color-brand);
+}
+
+.kpi-icon--review {
+  background: #e0f7fa;
+  color: #00838f;
+}
+
+.kpi-icon--errors {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.kpi-icon--score {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.kpi-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.kpi-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.kpi-arrow {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.kpi-card--link:hover .kpi-arrow {
+  color: var(--color-brand);
+}
+
+/* Cards Grid */
 .cards-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+  margin-bottom: 24px;
 }
 
 .card {
@@ -194,6 +432,10 @@ onMounted(() => {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   overflow: hidden;
+}
+
+.card--full {
+  margin-bottom: 24px;
 }
 
 .card-header {
@@ -211,8 +453,42 @@ onMounted(() => {
   margin: 0;
 }
 
+.card-subtitle {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
 .card-body {
   padding: 20px;
+}
+
+.card-body--flush {
+  padding: 0;
+}
+
+.card-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.view-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-brand);
+  text-decoration: none;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+.attention-count {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 500;
 }
 
 .status-chip {
@@ -249,6 +525,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
 }
 
 .chart-legend {
@@ -282,46 +559,216 @@ onMounted(() => {
   color: var(--color-text);
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+/* Needs Attention */
+.attention-list {
+  max-height: 320px;
+  overflow-y: auto;
 }
 
-.stat-item {
+.attention-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.attention-row:last-child {
+  border-bottom: none;
+}
+
+.attention-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attention-score {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.attention-score.high {
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.attention-score.mid {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.attention-score.low {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.empty-state {
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  background: var(--color-bg);
-  border-radius: 8px;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.stat-value--success {
-  color: var(--color-success);
-}
-
-.stat-value--brand {
-  color: var(--color-brand);
-}
-
-.stat-value--warning {
-  color: var(--color-warning);
-}
-
-.stat-label {
-  font-size: 13px;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
   color: var(--color-text-muted);
-  margin-top: 4px;
+  font-size: 14px;
 }
 
-@media (max-width: 768px) {
+.empty-state-icon {
+  font-size: 28px;
+  color: #20501e;
+}
+
+/* Status Tags */
+.status-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status--pending {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.status--processing {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status--content_ready {
+  background: #ebf5ff;
+  color: #0077e6;
+}
+
+.status--content_error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.status--for_review {
+  background: #e0f7fa;
+  color: #00838f;
+}
+
+.status--done {
+  background: #ecfdf5;
+  color: #20501e;
+}
+
+.status--failed {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.status--error {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.status--incorrect_manual {
+  background: #f5f3ff;
+  color: #6d28d9;
+}
+
+/* Mini Table (Recent Activity) */
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.mini-table thead tr {
+  background: var(--color-bg-section);
+}
+
+.mini-table th {
+  padding: 10px 20px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.mini-table td {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.mini-table tbody tr:hover {
+  background: var(--color-highlight);
+}
+
+.mini-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.mini-title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mini-title {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.mini-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.mini-muted {
+  color: var(--color-text-muted);
+}
+
+.score-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.score--high {
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.score--mid {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.score--low {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+@media (max-width: 900px) {
+  .kpi-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .kpi-row {
     grid-template-columns: 1fr;
   }
 }
