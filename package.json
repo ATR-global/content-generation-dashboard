@@ -18,8 +18,10 @@
     "pinia": "^2.1.7",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.5",
+    "tippy.js": "^6.3.7",
     "vue": "^3.4.29",
-    "vue-router": "^4.4.5"
+    "vue-router": "^4.4.5",
+    "vue-tippy": "^6.7.1"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",

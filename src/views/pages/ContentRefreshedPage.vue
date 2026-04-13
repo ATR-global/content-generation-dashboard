@@ -122,7 +122,7 @@
                       <span
                         v-if="row.contentIssuesRecommendations"
                         class="issues-badge"
-                        title="Has content issues / recommendations"
+                        v-tippy="'Has content issues / recommendations'"
                       >
                         <i class="pi pi-exclamation-triangle"></i>
                       </span>
@@ -144,24 +144,24 @@
                 <td class="col-pages">{{ row.metaPages }}</td>
                 <td class="col-lang">{{ row.metaLanguage }}</td>
                 <td class="col-actions">
-                  <button class="action-btn" title="View / Edit" @click="openModal(row)">
-                    <i class="pi pi-eye"></i>
+                  <button class="action-btn" v-tippy="'Edit Content'" @click="openModal(row)">
+                    <i class="pi pi-pencil"></i>
                   </button>
                   <a
                     :href="row.pageUrl"
                     target="_blank"
                     class="action-btn"
-                    title="Open Page"
+                    v-tippy="'View Page'"
                   >
-                    <i class="pi pi-globe"></i>
+                    <i class="pi pi-eye"></i>
                   </a>
                   <a
                     :href="row.wpPostUrl"
                     target="_blank"
                     class="action-btn"
-                    title="Edit in WordPress"
+                    v-tippy="'Open in WordPress'"
                   >
-                    <i class="pi pi-pencil"></i>
+                    <i class="pi pi-globe"></i>
                   </a>
                 </td>
               </tr>
