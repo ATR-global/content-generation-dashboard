@@ -2,7 +2,7 @@
   <header class="app-header">
     <div class="header-inner">
       <div class="header-brand">
-        <span class="brand-title">Content Pipeline</span>
+        <img :src="logoSrc" alt="Logo" class="brand-logo" />
       </div>
       <nav class="header-nav">
         <router-link
@@ -21,6 +21,8 @@
 </template>
 
 <script setup lang="ts">
+import logoSrc from '@/assets/images/logo.svg';
+
 const tabs = [
   { to: '/', routeName: 'Dashboard', label: 'Dashboard', icon: 'pi pi-chart-pie' },
   {
@@ -51,11 +53,24 @@ const tabs = [
   gap: 32px;
 }
 
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo {
+  height: 22px;
+  width: auto;
+}
+
 .brand-title {
   font-size: 16px;
   font-weight: 700;
   color: var(--color-primary);
   letter-spacing: -0.3px;
+  border-left: 1px solid var(--color-border);
+  padding-left: 12px;
 }
 
 .header-nav {

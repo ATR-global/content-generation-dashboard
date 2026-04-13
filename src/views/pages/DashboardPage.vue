@@ -133,6 +133,39 @@
           </div>
         </div>
 
+        <!-- Task List -->
+        <div class="card card--full">
+          <div class="card-header">
+            <h2 class="card-title">Task List</h2>
+            <span class="card-subtitle">Content refresh tasks</span>
+          </div>
+          <div class="card-body card-body--flush">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="task in tasks" :key="task.name">
+                  <td>
+                    <div class="task-name-cell">
+                      <i class="pi" :class="taskIcon(task.status)"></i>
+                      <span>{{ task.name }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="task-status" :class="'task-status--' + task.status">
+                      {{ taskStatusLabel(task.status) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Recent Activity -->
         <div class="card card--full">
           <div class="card-header">
@@ -245,6 +278,32 @@ const avgScore =
 // Needs Attention: items with problematic statuses
 const attentionStatuses = new Set(['content_error', 'failed', 'error', 'incorrect_manual']);
 const attentionItems = sampleManuals.filter((m) => attentionStatuses.has(m.status));
+
+// Task List
+type TaskStatus = 'open' | 'in_progress' | 'done';
+
+interface PipelineTask {
+  name: string;
+  status: TaskStatus;
+}
+
+const tasks: PipelineTask[] = [
+  { name: 'Refresh content for GE Ranges', status: 'in_progress' },
+  { name: 'Refresh content for GE Dishwashers', status: 'open' },
+  { name: 'Refresh content for GE Refrigerators', status: 'open' },
+];
+
+function taskIcon(status: TaskStatus): string {
+  if (status === 'done') return 'pi-check-circle';
+  if (status === 'in_progress') return 'pi-spin pi-spinner';
+  return 'pi-circle';
+}
+
+function taskStatusLabel(status: TaskStatus): string {
+  if (status === 'done') return 'Done';
+  if (status === 'in_progress') return 'In Progress';
+  return 'Open';
+}
 
 // Recent Activity: all sample items sorted by ID descending (simulating recency)
 const recentItems = [...sampleManuals].sort((a, b) => b.id - a.id).slice(0, 7);
@@ -755,6 +814,88 @@ onMounted(() => {
 .score--low {
   background: #fef2f2;
   color: #991b1b;
+}
+
+/* Task List */
+.task-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.task-name-cell .pi {
+  font-size: 16px;
+}
+
+.task-name-cell .pi-check-circle {
+  color: #20501e;
+}
+
+.task-name-cell .pi-spinner {
+  color: var(--color-brand);
+}
+
+.task-name-cell .pi-circle {
+  color: var(--color-text-muted);
+}
+
+.task-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.task-status--open {
+  background: var(--color-bg-section);
+  color: var(--color-text-muted);
+}
+
+.task-status--in_progress {
+  background: #ebf5ff;
+  color: var(--color-brand);
+}
+
+.task-status--done {
+  background: #ecfdf5;
+  color: #20501e;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--color-bg-section);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill--open {
+  background: var(--color-border);
+}
+
+.progress-fill--in_progress {
+  background: var(--color-brand);
+}
+
+.progress-fill--done {
+  background: #20501e;
+}
+
+.progress-text {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {
