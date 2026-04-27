@@ -16,12 +16,30 @@
           {{ tab.label }}
         </router-link>
       </nav>
+      <div class="header-actions">
+        <button
+          class="logout-btn"
+          :disabled="loggingOut"
+          @click="onLogout"
+          v-tippy="'Sign out'"
+        >
+          <i class="pi pi-sign-out"></i>
+          <span>Sign out</span>
+        </button>
+      </div>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import logoSrc from '@/assets/images/logo.svg';
+import { useAuth } from '@/composables/useAuth';
+
+const router = useRouter();
+const { logout } = useAuth();
+const loggingOut = ref(false);
 
 const tabs = [
   { to: '/', routeName: 'Dashboard', label: 'Dashboard', icon: 'pi pi-chart-pie' },
@@ -32,6 +50,17 @@ const tabs = [
     icon: 'pi pi-file-edit',
   },
 ];
+
+async function onLogout() {
+  if (loggingOut.value) return;
+  loggingOut.value = true;
+  try {
+    await logout();
+  } finally {
+    loggingOut.value = false;
+    router.replace({ name: 'Login' });
+  }
+}
 </script>
 
 <style scoped>
@@ -103,5 +132,37 @@ const tabs = [
 
 .nav-tab-icon {
   font-size: 14px;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-white);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.logout-btn:hover:not(:disabled) {
+  color: var(--color-brand);
+  border-color: var(--color-brand);
+}
+
+.logout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

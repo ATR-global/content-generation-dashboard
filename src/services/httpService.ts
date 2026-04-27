@@ -2,6 +2,12 @@ const API_BASE = `${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/con
 
 type QueryValue = string | number | boolean | undefined | null;
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: () => void): void {
+  onUnauthorized = handler;
+}
+
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   const url = `${API_BASE}${path}`;
   if (!query) return url;
@@ -14,8 +20,11 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   return qs ? `${url}?${qs}` : url;
 }
 
-async function handle<T>(response: Response): Promise<T> {
+async function handle<T>(response: Response, path: string): Promise<T> {
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/auth/')) {
+      onUnauthorized?.();
+    }
     let message = `HTTP ${response.status}: ${response.statusText}`;
     try {
       const body = await response.json();
@@ -36,7 +45,7 @@ export async function httpGet<T>(
     method: 'GET',
     credentials: 'include',
   });
-  return handle<T>(response);
+  return handle<T>(response, path);
 }
 
 export async function httpPost<T>(path: string, body?: unknown): Promise<T> {
@@ -46,7 +55,7 @@ export async function httpPost<T>(path: string, body?: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return handle<T>(response);
+  return handle<T>(response, path);
 }
 
 export async function httpPatch<T>(path: string, body?: unknown): Promise<T> {
@@ -56,5 +65,5 @@ export async function httpPatch<T>(path: string, body?: unknown): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return handle<T>(response);
+  return handle<T>(response, path);
 }
