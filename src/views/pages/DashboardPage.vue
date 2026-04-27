@@ -90,7 +90,7 @@
                 :key="'refresh-' + label"
                 class="legend-item"
               >
-                <span class="legend-dot" :style="{ background: refreshChartColors[i] }"></span>
+                <span class="legend-dot" :style="{ background: refreshChartData.colors[i] }"></span>
                 <span class="legend-label">{{ label }}</span>
                 <span class="legend-value">{{ refreshChartData.values[i] }}</span>
               </div>
@@ -212,74 +212,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { Chart, ArcElement, Tooltip, Legend, DoughnutController } from 'chart.js';
 import AppHeader from '@/components/common/AppHeader.vue';
-import { pieChartData, sampleManuals, statusLabels } from '@/data/sampleData';
+import { allStatuses, statusLabels, statusColors } from '@/data/statusLabels';
+import {
+  getStats,
+  getRecent,
+  getNeedsAttention,
+  type ManualRecord,
+} from '@/services/contentRefreshJobs';
 
 Chart.register(ArcElement, Tooltip, Legend, DoughnutController);
 
-const chartData = pieChartData;
-const totalManuals = chartData.values.reduce((a, b) => a + b, 0);
+const counts = ref<Record<string, number>>({});
+const totalRefresh = ref(0);
+const forReviewCount = ref(0);
+const errorCount = ref(0);
+const avgScore = ref<string>('—');
+const attentionItems = ref<ManualRecord[]>([]);
+const recentItems = ref<ManualRecord[]>([]);
 
-const chartColors = [
-  '#f59e0b', // Pending - amber
-  '#3b82f6', // Processing - blue
-  '#0077e6', // Content Ready - brand blue
-  '#ef4444', // Content Error - red
-  '#20501e', // Done - success green
-  '#dc2626', // Failed - dark red
-  '#f97316', // Error - orange
-  '#8b5cf6', // Incorrect Manual - purple
-];
+const refreshChartData = computed(() => {
+  const labels: string[] = [];
+  const values: number[] = [];
+  const colors: string[] = [];
+  for (const status of allStatuses) {
+    const count = counts.value[status] || 0;
+    if (count === 0 && status !== 'done' && status !== 'published') continue;
+    labels.push(statusLabels[status] || status);
+    values.push(count);
+    colors.push(statusColors[status] || '#94a3b8');
+  }
+  return { labels, values, colors };
+});
 
-const refreshChartData = {
-  labels: [
-    'Pending',
-    'Processing',
-    'Content Ready',
-    'Content Error',
-    'For Review',
-    'Done',
-    'Failed',
-    'Error',
-    'Incorrect Manual',
-  ],
-  values: [145, 38, 184, 53, 200, 612, 24, 15, 68],
-};
-
-const refreshChartColors = [
-  '#f59e0b', // Pending - amber
-  '#3b82f6', // Processing - blue
-  '#0077e6', // Content Ready - brand blue
-  '#ef4444', // Content Error - red
-  '#00c7e6', // For Review - secondary teal
-  '#20501e', // Done - success green
-  '#dc2626', // Failed - dark red
-  '#f97316', // Error - orange
-  '#8b5cf6', // Incorrect Manual - purple
-];
-
-const totalRefresh = refreshChartData.values.reduce((a, b) => a + b, 0);
-
-// KPI computations
-const forReviewCount = refreshChartData.values[4]; // For Review
-const errorCount =
-  refreshChartData.values[3] + // Content Error
-  refreshChartData.values[6] + // Failed
-  refreshChartData.values[7] + // Error
-  refreshChartData.values[8]; // Incorrect Manual
-
-const avgScore =
-  sampleManuals.length > 0
-    ? (sampleManuals.reduce((sum, m) => sum + m.score, 0) / sampleManuals.length).toFixed(2)
-    : '—';
-
-// Needs Attention: items with problematic statuses
-const attentionStatuses = new Set(['content_error', 'failed', 'error', 'incorrect_manual']);
-const attentionItems = sampleManuals.filter((m) => attentionStatuses.has(m.status));
-
-// Task List
 type TaskStatus = 'open' | 'in_progress' | 'done';
 
 interface PipelineTask {
@@ -305,26 +272,22 @@ function taskStatusLabel(status: TaskStatus): string {
   return 'Open';
 }
 
-// Recent Activity: all sample items sorted by ID descending (simulating recency)
-const recentItems = [...sampleManuals].sort((a, b) => b.id - a.id).slice(0, 7);
-
-function scoreClass(score: number): string {
+function scoreClass(score: number | null): string {
+  if (score === null || score === undefined) return 'low';
   if (score >= 8.5) return 'high';
   if (score >= 7.0) return 'mid';
   return 'low';
 }
 
-// const pieChartCanvas = ref<HTMLCanvasElement | null>(null);
 const refreshChartCanvas = ref<HTMLCanvasElement | null>(null);
+let chartInstance: Chart | null = null;
 
-function createDoughnut(
-  canvas: HTMLCanvasElement,
-  labels: string[],
-  values: number[],
-  colors: string[],
-  total: number,
-) {
-  new Chart(canvas, {
+function renderChart() {
+  if (!refreshChartCanvas.value) return;
+  const { labels, values, colors } = refreshChartData.value;
+  const total = values.reduce((a, b) => a + b, 0);
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(refreshChartCanvas.value, {
     type: 'doughnut',
     data: {
       labels,
@@ -347,7 +310,7 @@ function createDoughnut(
           callbacks: {
             label(context) {
               const value = context.parsed;
-              const pct = ((value / total) * 100).toFixed(1);
+              const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
               return `${context.label}: ${value} (${pct}%)`;
             },
           },
@@ -357,12 +320,25 @@ function createDoughnut(
   });
 }
 
-onMounted(() => {
-  // if (pieChartCanvas.value) {
-  //   createDoughnut(pieChartCanvas.value, chartData.labels, chartData.values, chartColors, totalManuals);
-  // }
-  if (refreshChartCanvas.value) {
-    createDoughnut(refreshChartCanvas.value, refreshChartData.labels, refreshChartData.values, refreshChartColors, totalRefresh);
+onMounted(async () => {
+  try {
+    const [stats, recent, attention] = await Promise.all([
+      getStats(),
+      getRecent(7),
+      getNeedsAttention(20),
+    ]);
+
+    counts.value = stats.counts;
+    totalRefresh.value = stats.totalJobs;
+    forReviewCount.value = stats.forReviewCount;
+    errorCount.value = stats.errorCount;
+    avgScore.value = stats.avgScore !== null ? stats.avgScore.toFixed(2) : '—';
+    recentItems.value = recent;
+    attentionItems.value = attention;
+
+    renderChart();
+  } catch (err) {
+    console.error('[DashboardPage] failed to load dashboard data', err);
   }
 });
 </script>

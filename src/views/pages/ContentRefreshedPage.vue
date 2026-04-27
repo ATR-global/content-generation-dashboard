@@ -13,7 +13,7 @@
             @click="activeTab = 'unpublished'"
           >
             Unpublished
-            <span class="tab-count">{{ unpublishedRecords.length }}</span>
+            <span class="tab-count">{{ unpublishedCount }}</span>
           </button>
           <button
             class="tab-btn"
@@ -21,7 +21,7 @@
             @click="activeTab = 'for_review'"
           >
             For Review
-            <span class="tab-count">{{ forReviewRecords.length }}</span>
+            <span class="tab-count">{{ forReviewCount }}</span>
           </button>
           <button
             class="tab-btn"
@@ -29,7 +29,16 @@
             @click="activeTab = 'published'"
           >
             Published
-            <span class="tab-count">{{ publishedRecords.length }}</span>
+            <span class="tab-count">{{ publishedCount }}</span>
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === 'failed_score' }"
+            @click="activeTab = 'failed_score'"
+            v-tippy="'Pages with content score below 7.8'"
+          >
+            Failed Content Score
+            <span class="tab-count">{{ failedScoreCount }}</span>
           </button>
         </div>
 
@@ -54,7 +63,7 @@
           </div>
           <div class="toolbar-right">
             <button
-              v-if="activeTab === 'unpublished' && selectedIds.length > 0"
+              v-if="(activeTab === 'unpublished' || activeTab === 'failed_score') && selectedIds.length > 0"
               class="redo-btn"
               @click="showRedoConfirm = true"
             >
@@ -104,7 +113,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in paginatedRecords" :key="row.id">
+              <tr v-for="row in records" :key="row.id">
                 <td v-if="hasCheckbox" class="col-checkbox">
                   <input
                     type="checkbox"
@@ -144,28 +153,35 @@
                 <td class="col-pages">{{ row.metaPages }}</td>
                 <td class="col-lang">{{ row.metaLanguage }}</td>
                 <td class="col-actions">
-                  <button class="action-btn" v-tippy="'Edit Content'" @click="openModal(row)">
-                    <i class="pi pi-pencil"></i>
-                  </button>
-                  <a
-                    :href="row.pageUrl"
-                    target="_blank"
-                    class="action-btn"
-                    v-tippy="'View Page'"
-                  >
-                    <i class="pi pi-eye"></i>
-                  </a>
-                  <a
-                    :href="row.wpPostUrl"
-                    target="_blank"
-                    class="action-btn"
-                    v-tippy="'Open in WordPress'"
-                  >
-                    <i class="pi pi-globe"></i>
-                  </a>
+                  <div class="actions-inner">
+                    <button
+                      v-if="activeTab !== 'unpublished'"
+                      class="action-btn"
+                      v-tippy="'Edit Content'"
+                      @click="openModal(row)"
+                    >
+                      <i class="pi pi-pencil"></i>
+                    </button>
+                    <a
+                      :href="row.pageUrl"
+                      target="_blank"
+                      class="action-btn"
+                      v-tippy="'View Page'"
+                    >
+                      <i class="pi pi-eye"></i>
+                    </a>
+                    <a
+                      :href="row.wpPostUrl"
+                      target="_blank"
+                      class="action-btn"
+                      v-tippy="'Open in WordPress'"
+                    >
+                      <i class="pi pi-globe"></i>
+                    </a>
+                  </div>
                 </td>
               </tr>
-              <tr v-if="paginatedRecords.length === 0">
+              <tr v-if="records.length === 0">
                 <td :colspan="hasCheckbox ? 9 : 8" class="empty-row">
                   No records found.
                 </td>
@@ -178,7 +194,7 @@
         <div class="pagination-bar" v-if="totalPages > 1">
           <span class="pagination-info">
             Showing {{ paginationStart + 1 }}–{{ paginationEnd }} of
-            {{ filteredRecords.length }}
+            {{ totalRecords }}
           </span>
           <div class="pagination-controls">
             <button
@@ -304,21 +320,13 @@
             </div>
 
             <!-- Right column: content fields -->
-            <div class="modal-section">
+            <div class="modal-section modal-section--content">
               <h3 class="section-title">Document Overview</h3>
               <textarea
                 v-model="modalRecord.documentOverview"
                 class="field-textarea"
                 rows="4"
-                :disabled="activeTab === 'published'"
-              ></textarea>
-
-              <h3 class="section-title">Source Integrity</h3>
-              <textarea
-                v-model="modalRecord.sourceIntegrity"
-                class="field-textarea"
-                rows="3"
-                :disabled="activeTab === 'published'"
+                :disabled="activeTab === 'published' || isRecreating"
               ></textarea>
 
               <h3 class="section-title">What This Manual Helps You Fix</h3>
@@ -330,7 +338,7 @@
                 <input
                   v-model="modalRecord.whatThisManualHelpsYouFix[i]"
                   class="field-input"
-                  :disabled="activeTab === 'published'"
+                  :disabled="activeTab === 'published' || isRecreating"
                 />
               </div>
 
@@ -343,7 +351,7 @@
                 <input
                   v-model="modalRecord.whatsInsideThisManual[i]"
                   class="field-input"
-                  :disabled="activeTab === 'published'"
+                  :disabled="activeTab === 'published' || isRecreating"
                 />
               </div>
 
@@ -357,14 +365,14 @@
                 <input
                   v-model="modalRecord.troubleshootingGuideQuestions[i]"
                   class="field-input"
-                  :disabled="activeTab === 'published'"
+                  :disabled="activeTab === 'published' || isRecreating"
                 />
                 <label class="field-label">A{{ i + 1 }}:</label>
                 <textarea
                   v-model="modalRecord.troubleshootingGuideAnswers[i]"
                   class="field-textarea"
                   rows="3"
-                  :disabled="activeTab === 'published'"
+                  :disabled="activeTab === 'published' || isRecreating"
                 ></textarea>
               </div>
 
@@ -376,15 +384,61 @@
                   v-model="modalRecord.contentIssuesRecommendations"
                   class="field-textarea field-textarea--warning"
                   rows="6"
-                  :disabled="activeTab === 'published'"
+                  :disabled="activeTab === 'published' || isRecreating"
                 ></textarea>
               </template>
+
+              <!-- Recreate Content -->
+              <div v-if="activeTab !== 'published'" class="recreate-section">
+                <h3 class="section-title">Recreate Content</h3>
+                <p class="recreate-help">
+                  Regenerate this item's content. Optionally provide extra guidance to steer the output.
+                </p>
+                <label class="field-label">
+                  Additional Instructions <span class="optional">(optional)</span>
+                </label>
+                <textarea
+                  v-model="recreateInstructions"
+                  class="field-textarea"
+                  rows="3"
+                  placeholder="e.g. 'Make the overview more concise' or 'Add more troubleshooting cases'"
+                  :disabled="isRecreating"
+                ></textarea>
+                <div class="recreate-actions">
+                  <button
+                    v-if="preRecreateSnapshot"
+                    class="btn-link"
+                    :disabled="isRecreating"
+                    @click="revertRecreate"
+                  >
+                    <i class="pi pi-undo"></i>
+                    Revert to previous
+                  </button>
+                  <button
+                    class="btn-recreate"
+                    :disabled="isRecreating"
+                    @click="openRecreateConfirm"
+                  >
+                    <i class="pi pi-refresh" :class="{ 'pi-spin': isRecreating }"></i>
+                    {{ isRecreating ? 'Regenerating...' : 'Recreate Content' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Loading overlay on content column -->
+              <div v-if="isRecreating" class="content-loading-overlay">
+                <i class="pi pi-refresh pi-spin loading-icon"></i>
+                <span class="loading-text">Regenerating content...</span>
+                <span class="loading-subtext">This may take a moment.</span>
+              </div>
             </div>
           </div>
         </div>
         <div class="modal-footer" v-if="activeTab !== 'published'">
-          <button class="btn-ghost" @click="closeModal">Cancel</button>
-          <button class="btn-primary" @click="saveModal">Save Changes</button>
+          <button class="btn-ghost" :disabled="isRecreating" @click="closeModal">Cancel</button>
+          <button class="btn-primary" :disabled="isRecreating" @click="saveModal">
+            Save Changes
+          </button>
         </div>
       </div>
     </div>
@@ -424,20 +478,59 @@
         </div>
       </div>
     </div>
+
+    <!-- Recreate Single Item Confirmation Modal -->
+    <div
+      v-if="showRecreateConfirm"
+      class="modal-overlay"
+      @click.self="showRecreateConfirm = false"
+    >
+      <div class="confirm-panel confirm-panel--left">
+        <div class="confirm-icon confirm-icon--redo">
+          <i class="pi pi-refresh"></i>
+        </div>
+        <h3 class="confirm-title">Recreate Content</h3>
+        <p class="confirm-text">
+          The content fields for this item will be regenerated<span
+            v-if="recreateInstructions.trim()"
+          >
+            using your additional instructions</span>.
+        </p>
+        <div v-if="recreateInstructions.trim()" class="confirm-instructions">
+          <label class="field-label">Instructions</label>
+          <div class="confirm-instructions-text">{{ recreateInstructions }}</div>
+        </div>
+        <div v-if="hasUnsavedEdits" class="confirm-warning">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>
+            You have unsaved edits to this item that will be
+            <strong>overwritten</strong> by the regenerated content.
+          </span>
+        </div>
+        <div class="confirm-actions">
+          <button class="btn-ghost" @click="showRecreateConfirm = false">Cancel</button>
+          <button class="btn-warning" @click="confirmRecreate">Recreate</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import AppHeader from '@/components/common/AppHeader.vue';
+import { allStatuses, statusLabels } from '@/data/statusLabels';
 import {
-  sampleManuals,
-  allStatuses,
-  statusLabels,
+  listJobs,
+  updateJob,
+  recreateJob,
+  bulkRedo as apiBulkRedo,
+  bulkPublish as apiBulkPublish,
+  getStats,
+  type ListParams,
   type ManualRecord,
-} from '@/data/sampleData';
-
-type TabType = 'unpublished' | 'for_review' | 'published';
+  type TabType,
+} from '@/services/contentRefreshJobs';
 
 const activeTab = ref<TabType>('unpublished');
 const searchQuery = ref('');
@@ -445,84 +538,107 @@ const statusFilter = ref('');
 const selectedIds = ref<number[]>([]);
 const currentPage = ref(1);
 const pageSize = 50;
+const records = ref<ManualRecord[]>([]);
+const totalRecords = ref(0);
+const loading = ref(false);
+const tabCounts = ref<Record<string, number>>({});
+const totalJobs = ref(0);
+const failedScoreCount = ref(0);
 const modalRecord = ref<ManualRecord | null>(null);
+const modalOriginal = ref<ManualRecord | null>(null);
 const showPublishConfirm = ref(false);
 const showRedoConfirm = ref(false);
+const showRecreateConfirm = ref(false);
+const recreateInstructions = ref('');
+const isRecreating = ref(false);
+const preRecreateSnapshot = ref<ManualRecord | null>(null);
 const sortField = ref<'id' | 'score' | 'metaPages' | null>(null);
 const sortDir = ref<'asc' | 'desc'>('asc');
 
-// Unpublished: everything except done and for_review
-const unpublishedRecords = computed(() =>
-  sampleManuals.filter((r) => r.status !== 'done' && r.status !== 'for_review'),
-);
-// For Review: only for_review status
-const forReviewRecords = computed(() =>
-  sampleManuals.filter((r) => r.status === 'for_review'),
-);
-// Published: only done
-const publishedRecords = computed(() =>
-  sampleManuals.filter((r) => r.status === 'done'),
-);
-
-// Checkboxes on unpublished and for_review tabs
 const hasCheckbox = computed(() => activeTab.value !== 'published');
 
-const activeRecords = computed(() => {
-  if (activeTab.value === 'for_review') return forReviewRecords.value;
-  if (activeTab.value === 'published') return publishedRecords.value;
-  return unpublishedRecords.value;
-});
-
-const filteredRecords = computed(() => {
-  let records = activeRecords.value;
-
-  if (statusFilter.value && activeTab.value === 'unpublished') {
-    records = records.filter((r) => r.status === statusFilter.value);
-  }
-
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase();
-    records = records.filter(
-      (r) =>
-        r.title.toLowerCase().includes(q) ||
-        r.pageUrl.toLowerCase().includes(q) ||
-        String(r.id).includes(q) ||
-        String(r.wpPageId).includes(q),
-    );
-  }
-
-  if (sortField.value) {
-    const field = sortField.value;
-    const dir = sortDir.value === 'asc' ? 1 : -1;
-    records = [...records].sort((a, b) => (a[field] - b[field]) * dir);
-  }
-
-  return records;
-});
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRecords.value.length / pageSize)));
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize)));
 const paginationStart = computed(() => (currentPage.value - 1) * pageSize);
 const paginationEnd = computed(() =>
-  Math.min(paginationStart.value + pageSize, filteredRecords.value.length),
+  Math.min(paginationStart.value + pageSize, totalRecords.value),
 );
-const paginatedRecords = computed(() =>
-  filteredRecords.value.slice(paginationStart.value, paginationEnd.value),
+
+const unpublishedCount = computed(() => {
+  const counts = tabCounts.value;
+  const publishedExcluded = (counts.done || 0) + (counts.published || 0);
+  const reviewExcluded = counts.for_review || 0;
+  return Math.max(0, totalJobs.value - publishedExcluded - reviewExcluded);
+});
+const forReviewCount = computed(() => tabCounts.value.for_review || 0);
+const publishedCount = computed(
+  () => (tabCounts.value.done || 0) + (tabCounts.value.published || 0),
 );
 
 const allVisibleSelected = computed(() => {
-  const ids = paginatedRecords.value.map((r) => r.id);
+  const ids = records.value.map((r) => r.id);
   return ids.length > 0 && ids.every((id) => selectedIds.value.includes(id));
 });
 
-// Reset page and selection on tab/filter change
-watch([activeTab, searchQuery, statusFilter], () => {
-  currentPage.value = 1;
-  selectedIds.value = [];
+let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+
+async function fetchList() {
+  loading.value = true;
+  try {
+    const params: ListParams = {
+      tab: activeTab.value,
+      status: statusFilter.value || undefined,
+      q: searchQuery.value.trim() || undefined,
+      sort: sortField.value || undefined,
+      order: sortField.value ? sortDir.value : undefined,
+      page: currentPage.value,
+      pageSize,
+    };
+    const res = await listJobs(params);
+    records.value = res.items;
+    totalRecords.value = res.total;
+  } catch (err) {
+    console.error('[ContentRefreshedPage] list fetch failed', err);
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function refreshStats() {
+  try {
+    const stats = await getStats();
+    tabCounts.value = stats.counts;
+    totalJobs.value = stats.totalJobs;
+    failedScoreCount.value = stats.failedScoreCount ?? 0;
+  } catch (err) {
+    console.error('[ContentRefreshedPage] stats fetch failed', err);
+  }
+}
+
+async function refreshAll() {
+  await Promise.all([fetchList(), refreshStats()]);
+}
+
+onMounted(() => {
+  refreshAll();
 });
 
-// Reset sort on tab change
+watch([activeTab, statusFilter, sortField, sortDir, currentPage], () => {
+  fetchList();
+});
+
 watch(activeTab, () => {
+  currentPage.value = 1;
+  selectedIds.value = [];
   sortField.value = null;
+  statusFilter.value = '';
+});
+
+watch(searchQuery, () => {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    currentPage.value = 1;
+    fetchList();
+  }, 300);
 });
 
 function toggleSort(field: 'id' | 'score' | 'metaPages') {
@@ -530,7 +646,6 @@ function toggleSort(field: 'id' | 'score' | 'metaPages') {
     if (sortDir.value === 'asc') {
       sortDir.value = 'desc';
     } else {
-      // Third click clears sort
       sortField.value = null;
       sortDir.value = 'asc';
     }
@@ -551,7 +666,7 @@ function toggleSelect(id: number) {
 }
 
 function toggleSelectAll() {
-  const ids = paginatedRecords.value.map((r) => r.id);
+  const ids = records.value.map((r) => r.id);
   if (allVisibleSelected.value) {
     selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id));
   } else {
@@ -560,19 +675,32 @@ function toggleSelectAll() {
   }
 }
 
-function confirmPublish() {
-  // No-op for now; would call backend API
-  showPublishConfirm.value = false;
-  selectedIds.value = [];
+async function confirmPublish() {
+  try {
+    await apiBulkPublish(selectedIds.value);
+  } catch (err) {
+    console.error('[ContentRefreshedPage] bulk publish failed', err);
+  } finally {
+    showPublishConfirm.value = false;
+    selectedIds.value = [];
+    refreshAll();
+  }
 }
 
-function confirmRedo() {
-  // No-op for now; would call backend API
-  showRedoConfirm.value = false;
-  selectedIds.value = [];
+async function confirmRedo() {
+  try {
+    await apiBulkRedo(selectedIds.value);
+  } catch (err) {
+    console.error('[ContentRefreshedPage] bulk redo failed', err);
+  } finally {
+    showRedoConfirm.value = false;
+    selectedIds.value = [];
+    refreshAll();
+  }
 }
 
-function scoreClass(score: number) {
+function scoreClass(score: number | null) {
+  if (score === null || score === undefined) return 'score--low';
   if (score >= 8.5) return 'score--high';
   if (score >= 7.0) return 'score--mid';
   return 'score--low';
@@ -580,15 +708,83 @@ function scoreClass(score: number) {
 
 function openModal(record: ManualRecord) {
   modalRecord.value = JSON.parse(JSON.stringify(record));
+  modalOriginal.value = JSON.parse(JSON.stringify(record));
+  recreateInstructions.value = '';
+  preRecreateSnapshot.value = null;
+  isRecreating.value = false;
+  showRecreateConfirm.value = false;
 }
 
 function closeModal() {
   modalRecord.value = null;
+  modalOriginal.value = null;
+  recreateInstructions.value = '';
+  preRecreateSnapshot.value = null;
+  isRecreating.value = false;
+  showRecreateConfirm.value = false;
 }
 
-function saveModal() {
-  // No-op for now; would persist changes to backend
-  closeModal();
+async function saveModal() {
+  if (!modalRecord.value) return;
+  const m = modalRecord.value;
+  try {
+    const updated = await updateJob(m.id, {
+      title: m.title,
+      score: m.score ?? undefined,
+      documentOverview: m.documentOverview,
+      metaFormat: m.metaFormat,
+      metaLanguage: m.metaLanguage,
+      metaApplianceType: m.metaApplianceType,
+      metaPages: m.metaPages,
+      technicalSpecs: m.technicalSpecs,
+      compatibleModels: m.compatibleModels,
+      whatThisManualHelpsYouFix: m.whatThisManualHelpsYouFix,
+      whatsInsideThisManual: m.whatsInsideThisManual,
+      troubleshootingGuideQuestions: m.troubleshootingGuideQuestions,
+      troubleshootingGuideAnswers: m.troubleshootingGuideAnswers,
+    });
+    const idx = records.value.findIndex((r) => r.id === updated.id);
+    if (idx >= 0) records.value[idx] = updated;
+    closeModal();
+  } catch (err) {
+    console.error('[ContentRefreshedPage] save failed', err);
+  }
+}
+
+const hasUnsavedEdits = computed(() => {
+  if (!modalRecord.value || !modalOriginal.value) return false;
+  return JSON.stringify(modalRecord.value) !== JSON.stringify(modalOriginal.value);
+});
+
+function openRecreateConfirm() {
+  showRecreateConfirm.value = true;
+}
+
+async function confirmRecreate() {
+  if (!modalRecord.value) return;
+  showRecreateConfirm.value = false;
+  preRecreateSnapshot.value = JSON.parse(JSON.stringify(modalRecord.value));
+  isRecreating.value = true;
+
+  try {
+    const updated = await recreateJob(modalRecord.value.id, recreateInstructions.value);
+    modalRecord.value = JSON.parse(JSON.stringify(updated));
+    const idx = records.value.findIndex((r) => r.id === updated.id);
+    if (idx >= 0) records.value[idx] = updated;
+    refreshStats();
+  } catch (err) {
+    console.error('[ContentRefreshedPage] recreate failed', err);
+    preRecreateSnapshot.value = null;
+  } finally {
+    isRecreating.value = false;
+    recreateInstructions.value = '';
+  }
+}
+
+function revertRecreate() {
+  if (!preRecreateSnapshot.value) return;
+  modalRecord.value = JSON.parse(JSON.stringify(preRecreateSnapshot.value));
+  preRecreateSnapshot.value = null;
 }
 </script>
 
@@ -829,8 +1025,12 @@ function saveModal() {
 
 .col-actions {
   width: 120px;
+}
+
+.actions-inner {
   display: flex;
   gap: 6px;
+  align-items: center;
 }
 
 .sortable-th {
@@ -1109,6 +1309,10 @@ function saveModal() {
   gap: 4px;
 }
 
+.modal-section--content {
+  position: relative;
+}
+
 .section-title {
   font-size: 13px;
   font-weight: 700;
@@ -1372,6 +1576,163 @@ function saveModal() {
 
 .btn-ghost:hover {
   border-color: var(--color-brand);
+}
+
+.btn-primary:disabled,
+.btn-ghost:disabled,
+.btn-warning:disabled,
+.btn-recreate:disabled,
+.btn-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Recreate Content section */
+.recreate-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.recreate-help {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.optional {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.recreate-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-recreate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f59e0b;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-left: auto;
+}
+
+.btn-recreate:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--color-brand);
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+/* Loading overlay on content column */
+.content-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 5;
+  border-radius: 8px;
+  backdrop-filter: blur(1px);
+}
+
+.loading-icon {
+  font-size: 28px;
+  color: #f59e0b;
+}
+
+.loading-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.loading-subtext {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Recreate confirm modal extras */
+.confirm-panel--left {
+  text-align: left;
+}
+
+.confirm-panel--left .confirm-icon {
+  margin-left: 0;
+}
+
+.confirm-instructions {
+  background: var(--color-bg-section);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.confirm-instructions .field-label {
+  margin-bottom: 6px;
+}
+
+.confirm-instructions-text {
+  font-size: 13px;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.confirm-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #991b1b;
+  line-height: 1.4;
+}
+
+.confirm-warning .pi {
+  color: #dc2626;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.confirm-panel--left .confirm-actions {
+  justify-content: flex-end;
 }
 
 @media (max-width: 768px) {
