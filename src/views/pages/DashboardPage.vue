@@ -239,7 +239,7 @@ const refreshChartData = computed(() => {
   const colors: string[] = [];
   for (const status of allStatuses) {
     const count = counts.value[status] || 0;
-    if (count === 0 && status !== 'done' && status !== 'published') continue;
+    if (count === 0 && status !== 'published') continue;
     labels.push(statusLabels[status] || status);
     values.push(count);
     colors.push(statusColors[status] || '#94a3b8');
@@ -695,9 +695,14 @@ onMounted(async () => {
   color: #00838f;
 }
 
-.status--done {
+.status--published {
   background: #ecfdf5;
   color: #20501e;
+}
+
+.status--for_publishing {
+  background: #f5f3ff;
+  color: #6d28d9;
 }
 
 .status--failed {

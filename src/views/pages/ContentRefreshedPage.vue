@@ -82,7 +82,11 @@
         </div>
 
         <!-- Table -->
-        <div class="table-container">
+        <div class="table-container" :class="{ 'is-loading': loading }">
+          <div v-if="loading" class="table-loading-overlay">
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Loading…</span>
+          </div>
           <table class="data-table">
             <thead>
               <tr>
@@ -140,7 +144,11 @@
                   </div>
                 </td>
                 <td class="col-score">
-                  <span class="score-badge" :class="scoreClass(row.score)">
+                  <span
+                    v-if="row.score !== null && row.score !== undefined"
+                    class="score-badge"
+                    :class="scoreClass(row.score)"
+                  >
                     {{ row.score }}
                   </span>
                 </td>
@@ -155,7 +163,6 @@
                 <td class="col-actions">
                   <div class="actions-inner">
                     <button
-                      v-if="activeTab !== 'unpublished'"
                       class="action-btn"
                       v-tippy="'Edit Content'"
                       @click="openModal(row)"
@@ -265,7 +272,7 @@
                     type="number"
                     step="0.01"
                     class="field-input"
-                    :disabled="activeTab === 'published'"
+                    :disabled="isRecreating"
                   />
                 </div>
                 <div class="field-group">
@@ -291,32 +298,85 @@
               </div>
 
               <h3 class="section-title">Preview Thumbnails</h3>
-              <div class="thumbnail-row">
-                <div
+              <div v-if="modalRecord.previewThumbnails.length > 0" class="thumbnail-row">
+                <button
                   v-for="(thumb, i) in modalRecord.previewThumbnails"
                   :key="i"
-                  class="thumbnail-placeholder"
+                  type="button"
+                  class="thumbnail-tile"
+                  v-tippy="'Click to enlarge'"
+                  @click="openPreview(i)"
                 >
-                  <i class="pi pi-image"></i>
-                  <span>Preview {{ i + 1 }}</span>
-                </div>
+                  <img
+                    :src="thumb"
+                    :alt="'Preview ' + (i + 1)"
+                    class="thumbnail-img"
+                    loading="lazy"
+                  />
+                  <span class="thumbnail-index">{{ i + 1 }}</span>
+                </button>
               </div>
+              <div v-else class="thumbnail-empty">No preview thumbnails available.</div>
 
               <h3 class="section-title">Compatible Models</h3>
-              <div class="tags-row">
-                <span
-                  v-for="model in modalRecord.compatibleModels"
-                  :key="model"
-                  class="tag"
+              <div
+                v-for="(_, i) in modalRecord.compatibleModels"
+                :key="'model-' + i"
+                class="editable-list-row"
+              >
+                <input
+                  v-model="modalRecord.compatibleModels[i]"
+                  class="field-input"
+                  :disabled="isRecreating"
+                />
+                <button
+                  type="button"
+                  class="row-remove-btn"
+                  v-tippy="'Remove'"
+                  :disabled="isRecreating"
+                  @click="modalRecord.compatibleModels.splice(i, 1)"
                 >
-                  {{ model }}
-                </span>
+                  <i class="pi pi-times"></i>
+                </button>
               </div>
+              <button
+                type="button"
+                class="row-add-btn"
+                :disabled="isRecreating"
+                @click="modalRecord.compatibleModels.push('')"
+              >
+                <i class="pi pi-plus"></i> Add model
+              </button>
 
               <h3 class="section-title">Technical Specs</h3>
-              <ul class="specs-list">
-                <li v-for="spec in modalRecord.technicalSpecs" :key="spec">{{ spec }}</li>
-              </ul>
+              <div
+                v-for="(_, i) in modalRecord.technicalSpecs"
+                :key="'spec-' + i"
+                class="editable-list-row"
+              >
+                <input
+                  v-model="modalRecord.technicalSpecs[i]"
+                  class="field-input"
+                  :disabled="isRecreating"
+                />
+                <button
+                  type="button"
+                  class="row-remove-btn"
+                  v-tippy="'Remove'"
+                  :disabled="isRecreating"
+                  @click="modalRecord.technicalSpecs.splice(i, 1)"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
+              <button
+                type="button"
+                class="row-add-btn"
+                :disabled="isRecreating"
+                @click="modalRecord.technicalSpecs.push('')"
+              >
+                <i class="pi pi-plus"></i> Add spec
+              </button>
             </div>
 
             <!-- Right column: content fields -->
@@ -326,55 +386,108 @@
                 v-model="modalRecord.documentOverview"
                 class="field-textarea"
                 rows="4"
-                :disabled="activeTab === 'published' || isRecreating"
+                :disabled="isRecreating"
               ></textarea>
 
               <h3 class="section-title">What This Manual Helps You Fix</h3>
               <div
-                v-for="(item, i) in modalRecord.whatThisManualHelpsYouFix"
+                v-for="(_, i) in modalRecord.whatThisManualHelpsYouFix"
                 :key="'fix-' + i"
-                class="editable-list-item"
+                class="editable-list-row"
               >
                 <input
                   v-model="modalRecord.whatThisManualHelpsYouFix[i]"
                   class="field-input"
-                  :disabled="activeTab === 'published' || isRecreating"
+                  :disabled="isRecreating"
                 />
+                <button
+                  type="button"
+                  class="row-remove-btn"
+                  v-tippy="'Remove'"
+                  :disabled="isRecreating"
+                  @click="modalRecord.whatThisManualHelpsYouFix.splice(i, 1)"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
               </div>
+              <button
+                type="button"
+                class="row-add-btn"
+                :disabled="isRecreating"
+                @click="modalRecord.whatThisManualHelpsYouFix.push('')"
+              >
+                <i class="pi pi-plus"></i> Add item
+              </button>
 
               <h3 class="section-title">What's Inside This Manual</h3>
               <div
-                v-for="(item, i) in modalRecord.whatsInsideThisManual"
+                v-for="(_, i) in modalRecord.whatsInsideThisManual"
                 :key="'inside-' + i"
-                class="editable-list-item"
+                class="editable-list-row"
               >
                 <input
                   v-model="modalRecord.whatsInsideThisManual[i]"
                   class="field-input"
-                  :disabled="activeTab === 'published' || isRecreating"
+                  :disabled="isRecreating"
                 />
+                <button
+                  type="button"
+                  class="row-remove-btn"
+                  v-tippy="'Remove'"
+                  :disabled="isRecreating"
+                  @click="modalRecord.whatsInsideThisManual.splice(i, 1)"
+                >
+                  <i class="pi pi-times"></i>
+                </button>
               </div>
+              <button
+                type="button"
+                class="row-add-btn"
+                :disabled="isRecreating"
+                @click="modalRecord.whatsInsideThisManual.push('')"
+              >
+                <i class="pi pi-plus"></i> Add item
+              </button>
 
               <h3 class="section-title">Troubleshooting Q&A</h3>
               <div
-                v-for="(q, i) in modalRecord.troubleshootingGuideQuestions"
+                v-for="(_, i) in modalRecord.troubleshootingGuideQuestions"
                 :key="'qa-' + i"
                 class="qa-block"
               >
-                <label class="field-label">Q{{ i + 1 }}:</label>
+                <div class="qa-header">
+                  <label class="field-label">Q{{ i + 1 }}</label>
+                  <button
+                    type="button"
+                    class="row-remove-btn"
+                    v-tippy="'Remove Q&A pair'"
+                    :disabled="isRecreating"
+                    @click="removeTroubleshootingPair(i)"
+                  >
+                    <i class="pi pi-times"></i>
+                  </button>
+                </div>
                 <input
                   v-model="modalRecord.troubleshootingGuideQuestions[i]"
                   class="field-input"
-                  :disabled="activeTab === 'published' || isRecreating"
+                  :disabled="isRecreating"
                 />
-                <label class="field-label">A{{ i + 1 }}:</label>
+                <label class="field-label">A{{ i + 1 }}</label>
                 <textarea
                   v-model="modalRecord.troubleshootingGuideAnswers[i]"
                   class="field-textarea"
                   rows="3"
-                  :disabled="activeTab === 'published' || isRecreating"
+                  :disabled="isRecreating"
                 ></textarea>
               </div>
+              <button
+                type="button"
+                class="row-add-btn"
+                :disabled="isRecreating"
+                @click="addTroubleshootingPair"
+              >
+                <i class="pi pi-plus"></i> Add Q&A
+              </button>
 
               <template v-if="modalRecord.contentIssuesRecommendations">
                 <h3 class="section-title section-title--warning">
@@ -384,15 +497,15 @@
                   v-model="modalRecord.contentIssuesRecommendations"
                   class="field-textarea field-textarea--warning"
                   rows="6"
-                  :disabled="activeTab === 'published' || isRecreating"
+                  :disabled="isRecreating"
                 ></textarea>
               </template>
 
               <!-- Recreate Content -->
-              <div v-if="activeTab !== 'published'" class="recreate-section">
+              <div class="recreate-section">
                 <h3 class="section-title">Recreate Content</h3>
                 <p class="recreate-help">
-                  Regenerate this item's content. Optionally provide extra guidance to steer the output.
+                  Recreate this item's content. Optionally provide extra guidance to steer the output.
                 </p>
                 <label class="field-label">
                   Additional Instructions <span class="optional">(optional)</span>
@@ -434,10 +547,27 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer" v-if="activeTab !== 'published'">
-          <button class="btn-ghost" :disabled="isRecreating" @click="closeModal">Cancel</button>
-          <button class="btn-primary" :disabled="isRecreating" @click="saveModal">
-            Save Changes
+        <div class="modal-footer">
+          <button
+            class="btn-ghost"
+            :disabled="isRecreating || isSaving"
+            @click="closeModal"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn-primary"
+            :disabled="isRecreating || isSaving"
+            @click="saveModal"
+          >
+            <i v-if="isSaving" class="pi pi-spin pi-spinner"></i>
+            {{
+              isSaving
+                ? PUBLISHED_STATUSES.has(modalRecord?.status ?? '')
+                  ? 'Saving & republishing…'
+                  : 'Saving…'
+                : 'Save Changes'
+            }}
           </button>
         </div>
       </div>
@@ -470,7 +600,7 @@
         <h3 class="confirm-title">Redo Content</h3>
         <p class="confirm-text">
           You are about to redo content generation for <strong>{{ selectedIds.length }}</strong>
-          {{ selectedIds.length === 1 ? 'item' : 'items' }}. The existing content will be regenerated.
+          {{ selectedIds.length === 1 ? 'item' : 'items' }}. The existing content will be recreated.
         </p>
         <div class="confirm-actions">
           <button class="btn-ghost" @click="showRedoConfirm = false">Cancel</button>
@@ -491,7 +621,7 @@
         </div>
         <h3 class="confirm-title">Recreate Content</h3>
         <p class="confirm-text">
-          The content fields for this item will be regenerated<span
+          The content fields for this item will be recreated<span
             v-if="recreateInstructions.trim()"
           >
             using your additional instructions</span>.
@@ -504,7 +634,7 @@
           <i class="pi pi-exclamation-triangle"></i>
           <span>
             You have unsaved edits to this item that will be
-            <strong>overwritten</strong> by the regenerated content.
+            <strong>overwritten</strong> by the recreated content.
           </span>
         </div>
         <div class="confirm-actions">
@@ -513,17 +643,55 @@
         </div>
       </div>
     </div>
+
+    <!-- Preview Image Modal -->
+    <div
+      v-if="previewIndex !== null && modalRecord"
+      class="preview-overlay"
+      @click.self="closePreview"
+      @keydown.esc="closePreview"
+    >
+      <button class="preview-close" @click="closePreview" v-tippy="'Close (Esc)'">
+        <i class="pi pi-times"></i>
+      </button>
+      <button
+        v-if="modalRecord.previewThumbnails.length > 1"
+        class="preview-nav preview-nav--prev"
+        @click="navigatePreview(-1)"
+        v-tippy="'Previous'"
+      >
+        <i class="pi pi-chevron-left"></i>
+      </button>
+      <img
+        :src="modalRecord.previewThumbnails[previewIndex]"
+        :alt="'Preview ' + (previewIndex + 1)"
+        class="preview-img"
+      />
+      <button
+        v-if="modalRecord.previewThumbnails.length > 1"
+        class="preview-nav preview-nav--next"
+        @click="navigatePreview(1)"
+        v-tippy="'Next'"
+      >
+        <i class="pi pi-chevron-right"></i>
+      </button>
+      <div class="preview-counter">
+        {{ previewIndex + 1 }} / {{ modalRecord.previewThumbnails.length }}
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { useToast } from '@/composables/useToast';
 import AppHeader from '@/components/common/AppHeader.vue';
 import { allStatuses, statusLabels } from '@/data/statusLabels';
 import {
   listJobs,
   updateJob,
   recreateJob,
+  republishJob,
   bulkRedo as apiBulkRedo,
   bulkPublish as apiBulkPublish,
   getStats,
@@ -531,6 +699,9 @@ import {
   type ManualRecord,
   type TabType,
 } from '@/services/contentRefreshJobs';
+
+const toast = useToast();
+const PUBLISHED_STATUSES = new Set(['published']);
 
 const activeTab = ref<TabType>('unpublished');
 const searchQuery = ref('');
@@ -565,14 +736,12 @@ const paginationEnd = computed(() =>
 
 const unpublishedCount = computed(() => {
   const counts = tabCounts.value;
-  const publishedExcluded = (counts.done || 0) + (counts.published || 0);
+  const publishedExcluded = counts.published || 0;
   const reviewExcluded = counts.for_review || 0;
   return Math.max(0, totalJobs.value - publishedExcluded - reviewExcluded);
 });
 const forReviewCount = computed(() => tabCounts.value.for_review || 0);
-const publishedCount = computed(
-  () => (tabCounts.value.done || 0) + (tabCounts.value.published || 0),
-);
+const publishedCount = computed(() => tabCounts.value.published || 0);
 
 const allVisibleSelected = computed(() => {
   const ids = records.value.map((r) => r.id);
@@ -713,6 +882,7 @@ function openModal(record: ManualRecord) {
   preRecreateSnapshot.value = null;
   isRecreating.value = false;
   showRecreateConfirm.value = false;
+  previewIndex.value = null;
 }
 
 function closeModal() {
@@ -721,14 +891,54 @@ function closeModal() {
   recreateInstructions.value = '';
   preRecreateSnapshot.value = null;
   isRecreating.value = false;
+  isSaving.value = false;
   showRecreateConfirm.value = false;
+  previewIndex.value = null;
 }
 
+const previewIndex = ref<number | null>(null);
+
+function openPreview(index: number) {
+  previewIndex.value = index;
+}
+
+function closePreview() {
+  previewIndex.value = null;
+}
+
+function navigatePreview(delta: number) {
+  if (previewIndex.value === null || !modalRecord.value) return;
+  const total = modalRecord.value.previewThumbnails.length;
+  if (total === 0) return;
+  previewIndex.value = (previewIndex.value + delta + total) % total;
+}
+
+function onPreviewKey(e: KeyboardEvent) {
+  if (previewIndex.value === null) return;
+  if (e.key === 'Escape') closePreview();
+  else if (e.key === 'ArrowLeft') navigatePreview(-1);
+  else if (e.key === 'ArrowRight') navigatePreview(1);
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onPreviewKey);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onPreviewKey);
+});
+
+const isSaving = ref(false);
+
 async function saveModal() {
-  if (!modalRecord.value) return;
+  if (!modalRecord.value || isSaving.value) return;
+  isSaving.value = true;
   const m = modalRecord.value;
+  const wasPublished = PUBLISHED_STATUSES.has(m.status);
+
+  let updated: ManualRecord;
   try {
-    const updated = await updateJob(m.id, {
+    updated = await updateJob(m.id, {
       title: m.title,
       score: m.score ?? undefined,
       documentOverview: m.documentOverview,
@@ -743,12 +953,57 @@ async function saveModal() {
       troubleshootingGuideQuestions: m.troubleshootingGuideQuestions,
       troubleshootingGuideAnswers: m.troubleshootingGuideAnswers,
     });
-    const idx = records.value.findIndex((r) => r.id === updated.id);
-    if (idx >= 0) records.value[idx] = updated;
-    closeModal();
   } catch (err) {
     console.error('[ContentRefreshedPage] save failed', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Save failed',
+      detail: err instanceof Error ? err.message : 'Could not save changes.',
+      life: 5000,
+    });
+    isSaving.value = false;
+    return;
   }
+
+  if (wasPublished) {
+    try {
+      updated = await republishJob(m.id);
+      toast.add({
+        severity: 'success',
+        summary: 'Saved & republished',
+        detail: 'Changes were saved and pushed to WordPress.',
+        life: 4000,
+      });
+    } catch (err) {
+      console.error('[ContentRefreshedPage] republish failed', err);
+      const idx = records.value.findIndex((r) => r.id === updated.id);
+      if (idx >= 0) records.value[idx] = updated;
+      toast.add({
+        severity: 'warn',
+        summary: 'Saved, but republish failed',
+        detail:
+          err instanceof Error
+            ? err.message
+            : 'Changes were saved but could not be published to WordPress. Try again from the modal.',
+        life: 6000,
+      });
+      isSaving.value = false;
+      return;
+    }
+  } else {
+    toast.add({
+      severity: 'success',
+      summary: 'Saved',
+      detail: 'Changes saved successfully.',
+      life: 3000,
+    });
+  }
+
+  const idx = records.value.findIndex((r) => r.id === updated.id);
+  if (idx >= 0) records.value[idx] = updated;
+  isSaving.value = false;
+  closeModal();
+  refreshStats();
 }
 
 const hasUnsavedEdits = computed(() => {
@@ -779,6 +1034,18 @@ async function confirmRecreate() {
     isRecreating.value = false;
     recreateInstructions.value = '';
   }
+}
+
+function addTroubleshootingPair() {
+  if (!modalRecord.value) return;
+  modalRecord.value.troubleshootingGuideQuestions.push('');
+  modalRecord.value.troubleshootingGuideAnswers.push('');
+}
+
+function removeTroubleshootingPair(i: number) {
+  if (!modalRecord.value) return;
+  modalRecord.value.troubleshootingGuideQuestions.splice(i, 1);
+  modalRecord.value.troubleshootingGuideAnswers.splice(i, 1);
 }
 
 function revertRecreate() {
@@ -955,10 +1222,37 @@ function revertRecreate() {
 
 /* Table */
 .table-container {
+  position: relative;
   background: var(--color-white);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   overflow-x: auto;
+  min-height: 120px;
+}
+
+.table-container.is-loading {
+  pointer-events: none;
+}
+
+.table-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  z-index: 4;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  backdrop-filter: blur(1px);
+}
+
+.table-loading-overlay .pi {
+  font-size: 18px;
+  color: var(--color-brand);
 }
 
 .data-table {
@@ -1139,9 +1433,14 @@ function revertRecreate() {
   color: #00838f;
 }
 
-.status--done {
+.status--published {
   background: #ecfdf5;
   color: #20501e;
+}
+
+.status--for_publishing {
+  background: #f5f3ff;
+  color: #6d28d9;
 }
 
 .status--failed {
@@ -1411,24 +1710,135 @@ function revertRecreate() {
 .thumbnail-row {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-.thumbnail-placeholder {
-  width: 80px;
-  height: 100px;
-  border: 1px dashed var(--color-border);
+.thumbnail-tile {
+  position: relative;
+  width: 90px;
+  height: 116px;
+  padding: 0;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
+  background: var(--color-bg-section);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.thumbnail-tile:hover {
+  border-color: var(--color-brand);
+  box-shadow: 0 2px 12px rgba(0, 119, 230, 0.15);
+}
+
+.thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbnail-index {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 1px 6px;
+  background: rgba(10, 37, 64, 0.7);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.thumbnail-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Preview Image Modal */
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 37, 64, 0.85);
+  z-index: 300;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  color: var(--color-text-muted);
-  font-size: 11px;
+  padding: 40px;
 }
 
-.thumbnail-placeholder .pi {
-  font-size: 20px;
+.preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.preview-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+
+.preview-close:hover {
+  background: #fff;
+}
+
+.preview-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+
+.preview-nav:hover {
+  background: #fff;
+}
+
+.preview-nav--prev {
+  left: 24px;
+}
+
+.preview-nav--next {
+  right: 24px;
+}
+
+.preview-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  background: rgba(10, 37, 64, 0.7);
+  color: #fff;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .tags-row {
@@ -1461,12 +1871,88 @@ function revertRecreate() {
   margin-bottom: 6px;
 }
 
+.editable-list-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.editable-list-row .field-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.row-remove-btn {
+  flex: 0 0 auto;
+  width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-white);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 13px;
+}
+
+.row-remove-btn:hover:not(:disabled) {
+  color: #dc2626;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.row-remove-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.row-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--color-brand);
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.row-add-btn:hover:not(:disabled) {
+  border-color: var(--color-brand);
+  background: var(--color-accent-light);
+}
+
+.row-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .qa-block {
   margin-bottom: 12px;
 }
 
 .qa-block .field-label {
   margin-top: 4px;
+}
+
+.qa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qa-header .row-remove-btn {
+  height: 28px;
+  width: 28px;
 }
 
 .modal-footer {

@@ -109,6 +109,11 @@ export async function recreateJob(
   return res.item;
 }
 
+export async function republishJob(id: number): Promise<ManualRecord> {
+  const res = await httpPost<ItemResponse>(`${ROOT}/${id}/republish`);
+  return res.item;
+}
+
 export function bulkRedo(ids: number[]): Promise<BulkResponse> {
   return httpPost<BulkResponse>(`${ROOT}/bulk-redo`, { ids });
 }
