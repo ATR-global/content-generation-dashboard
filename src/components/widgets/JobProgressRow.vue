@@ -81,7 +81,7 @@ const steps = [
   { key: 'pending', label: 'Queued' },
   { key: 'processing', label: 'Processing' },
   { key: 'content_ready', label: 'Finalizing' },
-  { key: 'done', label: 'Done' },
+  { key: 'published', label: 'Published' },
 ] as const;
 
 type StepKey = (typeof steps)[number]['key'];
