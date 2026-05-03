@@ -53,6 +53,8 @@ export interface StatsResponse {
   totalJobs: number;
   avgScore: number | null;
   forReviewCount: number;
+  publishedCount: number;
+  unpublishedCount: number;
   errorCount: number;
   failedScoreCount: number;
 }
@@ -141,5 +143,11 @@ export async function getNeedsAttention(limit = 20): Promise<ManualRecord[]> {
 
 export async function getRunningJobs(): Promise<ManualRecord[]> {
   const res = await httpGet<ItemsResponse>(`${ROOT}/running`);
+  return res.items;
+}
+
+export async function getJobsByIds(ids: number[]): Promise<ManualRecord[]> {
+  if (!ids.length) return [];
+  const res = await httpPost<ItemsResponse>(`${ROOT}/by-ids`, { ids });
   return res.items;
 }

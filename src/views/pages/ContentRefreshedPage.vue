@@ -715,6 +715,7 @@ const totalRecords = ref(0);
 const loading = ref(false);
 const tabCounts = ref<Record<string, number>>({});
 const totalJobs = ref(0);
+const unpublishedTotal = ref(0);
 const failedScoreCount = ref(0);
 const modalRecord = ref<ManualRecord | null>(null);
 const modalOriginal = ref<ManualRecord | null>(null);
@@ -735,11 +736,20 @@ const paginationEnd = computed(() =>
   Math.min(paginationStart.value + pageSize, totalRecords.value),
 );
 
+const UNPUBLISHED_STATUSES = [
+  'pending',
+  'processing',
+  'content_ready',
+  'content_error',
+  'for_publishing',
+  'failed',
+  'error',
+  'incorrect_manual',
+];
+
 const unpublishedCount = computed(() => {
-  const counts = tabCounts.value;
-  const publishedExcluded = counts.published || 0;
-  const reviewExcluded = counts.for_review || 0;
-  return Math.max(0, totalJobs.value - publishedExcluded - reviewExcluded);
+  if (unpublishedTotal.value > 0) return unpublishedTotal.value;
+  return UNPUBLISHED_STATUSES.reduce((sum, s) => sum + (tabCounts.value[s] || 0), 0);
 });
 const forReviewCount = computed(() => tabCounts.value.for_review || 0);
 const publishedCount = computed(() => tabCounts.value.published || 0);
@@ -778,6 +788,7 @@ async function refreshStats() {
     const stats = await getStats();
     tabCounts.value = stats.counts;
     totalJobs.value = stats.totalJobs;
+    unpublishedTotal.value = stats.unpublishedCount ?? 0;
     failedScoreCount.value = stats.failedScoreCount ?? 0;
   } catch (err) {
     console.error('[ContentRefreshedPage] stats fetch failed', err);

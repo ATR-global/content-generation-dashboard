@@ -22,26 +22,19 @@
           </div>
         </div>
 
-        <section v-if="yoursJobs.length > 0" class="job-section">
-          <h2 class="section-title">
-            Your recent recreations
-            <span class="section-count">{{ yoursJobs.length }}</span>
-          </h2>
-          <ul class="job-list">
-            <li v-for="row in yoursJobs" :key="`yours-${row.id}`" class="job-row job-row--yours">
-              <JobProgressRow :record="row" :is-yours="true" :now-ms="nowMs" />
-            </li>
-          </ul>
-        </section>
-
         <section class="job-section">
           <h2 class="section-title">
             All currently running
-            <span class="section-count">{{ otherJobs.length }}</span>
+            <span class="section-count">{{ runningJobs.length }}</span>
           </h2>
-          <ul v-if="otherJobs.length > 0" class="job-list">
-            <li v-for="row in otherJobs" :key="`all-${row.id}`" class="job-row">
-              <JobProgressRow :record="row" :is-yours="false" :now-ms="nowMs" />
+          <ul v-if="runningJobs.length > 0" class="job-list">
+            <li
+              v-for="row in runningJobs"
+              :key="`run-${row.id}`"
+              class="job-row"
+              :class="{ 'job-row--yours': isYours(row.id) }"
+            >
+              <JobProgressRow :record="row" :is-yours="isYours(row.id)" />
             </li>
           </ul>
           <div v-else-if="!loading" class="empty-state">
@@ -50,6 +43,33 @@
             <router-link to="/content-refreshed" class="empty-link">
               Go to Content Refreshed Pages
             </router-link>
+          </div>
+        </section>
+
+        <section v-if="yoursIds.size > 0" class="job-section">
+          <h2 class="section-title">
+            Your recent recreations
+            <span class="section-count">{{ yoursCompleted.length }}</span>
+            <span class="section-hint">Last 24h · finished processing</span>
+          </h2>
+          <ul v-if="yoursCompleted.length > 0" class="job-list">
+            <li
+              v-for="row in yoursCompleted"
+              :key="`done-${row.id}`"
+              class="job-row job-row--yours"
+              :class="{ 'job-row--failed-score': isFailedScore(row) }"
+            >
+              <JobCompletedRow :record="row" :now-ms="nowMs" />
+            </li>
+          </ul>
+          <div v-else-if="!loading" class="empty-state empty-state--small">
+            <p class="empty-text">
+              {{
+                yoursStillRunning > 0
+                  ? `Your ${yoursStillRunning} recent recreation${yoursStillRunning === 1 ? ' is' : 's are'} still running. They\'ll move here when finished.`
+                  : 'None of your recent recreations have completed yet.'
+              }}
+            </p>
           </div>
         </section>
       </div>
@@ -61,13 +81,20 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import AppHeader from '@/components/common/AppHeader.vue';
 import JobProgressRow from '@/components/widgets/JobProgressRow.vue';
-import { getRunningJobs, type ManualRecord } from '@/services/contentRefreshJobs';
+import JobCompletedRow from '@/components/widgets/JobCompletedRow.vue';
+import {
+  getRunningJobs,
+  getJobsByIds,
+  type ManualRecord,
+} from '@/services/contentRefreshJobs';
 import { getRecentRecreationIds } from '@/utils/recentRecreations';
 
 const POLL_INTERVAL_MS = 5000;
 const NOW_TICK_MS = 1000;
+const FAILED_SCORE_THRESHOLD = 7.8;
 
-const records = ref<ManualRecord[]>([]);
+const runningJobs = ref<ManualRecord[]>([]);
+const yoursCompleted = ref<ManualRecord[]>([]);
 const loading = ref(false);
 const lastPolledAt = ref<Date | null>(null);
 const nowMs = ref(Date.now());
@@ -76,11 +103,8 @@ const yoursIds = ref<Set<number>>(new Set());
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 
-const yoursJobs = computed(() =>
-  records.value.filter((row) => yoursIds.value.has(row.id)),
-);
-const otherJobs = computed(() =>
-  records.value.filter((row) => !yoursIds.value.has(row.id)),
+const yoursStillRunning = computed(
+  () => runningJobs.value.filter((row) => yoursIds.value.has(row.id)).length,
 );
 
 const lastPolledLabel = computed(() => {
@@ -92,12 +116,32 @@ const lastPolledLabel = computed(() => {
   return `${minutes}m ago`;
 });
 
+function isYours(id: number): boolean {
+  return yoursIds.value.has(id);
+}
+
+function isFailedScore(row: ManualRecord): boolean {
+  return row.score !== null && row.score !== undefined && row.score < FAILED_SCORE_THRESHOLD;
+}
+
 async function pollNow(): Promise<void> {
   if (loading.value) return;
   loading.value = true;
   try {
-    const items = await getRunningJobs();
-    records.value = items;
+    refreshYoursIds();
+    const running = await getRunningJobs();
+    runningJobs.value = running;
+
+    const runningIdSet = new Set(running.map((r) => r.id));
+    const completedIds = Array.from(yoursIds.value).filter((id) => !runningIdSet.has(id));
+
+    if (completedIds.length > 0) {
+      const fetched = await getJobsByIds(completedIds);
+      yoursCompleted.value = fetched.filter((r) => !runningIdSet.has(r.id));
+    } else {
+      yoursCompleted.value = [];
+    }
+
     lastPolledAt.value = new Date();
   } catch (err) {
     console.error('[InProgressPage] poll failed', err);
@@ -115,7 +159,6 @@ onMounted(() => {
   pollNow();
   pollTimer = setInterval(() => {
     pollNow();
-    refreshYoursIds();
   }, POLL_INTERVAL_MS);
   nowTimer = setInterval(() => {
     nowMs.value = Date.now();
@@ -231,6 +274,13 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
+.section-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-left: 4px;
+}
+
 .job-list {
   list-style: none;
   margin: 0;
@@ -251,12 +301,21 @@ onBeforeUnmount(() => {
   border-left: 3px solid var(--color-brand);
 }
 
+.job-row--failed-score {
+  border-left-color: #dc2626;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.12) inset;
+}
+
 .empty-state {
   background: var(--color-white);
   border: 1px dashed var(--color-border);
   border-radius: 8px;
   padding: 40px 20px;
   text-align: center;
+}
+
+.empty-state--small {
+  padding: 16px 20px;
 }
 
 .empty-icon {

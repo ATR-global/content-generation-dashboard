@@ -41,15 +41,9 @@
     </div>
 
     <div class="row-right">
-      <div class="row-elapsed">
-        <span v-if="record.status === 'pending'" class="row-status-text row-status-text--pending">
-          Queued
-        </span>
-        <span v-else class="row-elapsed-time">
-          <i class="pi pi-clock"></i>
-          {{ elapsedLabel }}
-        </span>
-      </div>
+      <span v-if="record.status === 'pending'" class="row-status-text row-status-text--pending">
+        Queued
+      </span>
       <div v-if="hasFooterDetails" class="row-footer">
         <span v-if="retryCount > 0" class="row-retry" v-tippy="'Number of times this job has been retried'">
           <i class="pi pi-history"></i>
@@ -67,12 +61,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { ManualRecord } from '@/services/contentRefreshJobs';
-import { formatElapsed } from '@/utils/time';
 
 interface Props {
   record: ManualRecord;
   isYours: boolean;
-  nowMs: number;
 }
 
 const props = defineProps<Props>();
@@ -112,8 +104,6 @@ const displayTitle = computed(() => {
   const t = (props.record.title || '').trim();
   return t || `Job ${props.record.id}`;
 });
-
-const elapsedLabel = computed(() => formatElapsed(props.record.startedAt, props.nowMs));
 
 const retryCount = computed(() => props.record.retryCount ?? 0);
 
@@ -272,19 +262,9 @@ const hasFooterDetails = computed(
   gap: 4px;
 }
 
-.row-elapsed {
+.row-status-text--pending {
   font-size: 13px;
   font-weight: 500;
-  color: var(--color-primary);
-}
-
-.row-elapsed-time {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.row-status-text--pending {
   color: var(--color-text-muted);
   font-style: italic;
 }
