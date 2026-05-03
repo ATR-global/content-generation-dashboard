@@ -23,6 +23,12 @@ const router = createRouter({
       component: () => import('@/views/pages/ContentRefreshedPage.vue'),
       meta: { title: 'Content Refreshed Pages - Content Pipeline' },
     },
+    {
+      path: '/in-progress',
+      name: 'InProgress',
+      component: () => import('@/views/pages/InProgressPage.vue'),
+      meta: { title: 'In Progress - Content Pipeline' },
+    },
   ],
 });
 

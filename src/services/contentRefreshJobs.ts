@@ -7,6 +7,9 @@ export interface ManualRecord {
   wpPostUrl: string;
   score: number | null;
   status: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  retryCount: number;
   title: string;
   previewThumbnails: string[];
   metaFormat: string;
@@ -133,5 +136,10 @@ export async function getRecent(limit = 7): Promise<ManualRecord[]> {
 
 export async function getNeedsAttention(limit = 20): Promise<ManualRecord[]> {
   const res = await httpGet<ItemsResponse>(`${ROOT}/needs-attention`, { limit });
+  return res.items;
+}
+
+export async function getRunningJobs(): Promise<ManualRecord[]> {
+  const res = await httpGet<ItemsResponse>(`${ROOT}/running`);
   return res.items;
 }

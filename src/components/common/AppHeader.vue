@@ -49,6 +49,12 @@ const tabs = [
     label: 'Content Refreshed Pages',
     icon: 'pi pi-file-edit',
   },
+  {
+    to: '/in-progress',
+    routeName: 'InProgress',
+    label: 'In Progress',
+    icon: 'pi pi-hourglass',
+  },
 ];
 
 async function onLogout() {

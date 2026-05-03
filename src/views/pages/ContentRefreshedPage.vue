@@ -699,6 +699,7 @@ import {
   type ManualRecord,
   type TabType,
 } from '@/services/contentRefreshJobs';
+import { recordRecreations } from '@/utils/recentRecreations';
 
 const toast = useToast();
 const PUBLISHED_STATUSES = new Set(['published']);
@@ -857,10 +858,24 @@ async function confirmPublish() {
 }
 
 async function confirmRedo() {
+  const submittedIds = [...selectedIds.value];
   try {
-    await apiBulkRedo(selectedIds.value);
+    await apiBulkRedo(submittedIds);
+    recordRecreations(submittedIds);
+    toast.add({
+      severity: 'success',
+      summary: 'Recreation queued',
+      detail: `${submittedIds.length} ${submittedIds.length === 1 ? 'job has' : 'jobs have'} been sent to the pipeline. Track progress on the In Progress tab.`,
+      life: 5000,
+    });
   } catch (err) {
     console.error('[ContentRefreshedPage] bulk redo failed', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Recreation failed',
+      detail: err instanceof Error ? err.message : 'Could not enqueue these jobs.',
+      life: 6000,
+    });
   } finally {
     showRedoConfirm.value = false;
     selectedIds.value = [];
@@ -1023,13 +1038,26 @@ async function confirmRecreate() {
 
   try {
     const updated = await recreateJob(modalRecord.value.id, recreateInstructions.value);
+    recordRecreations([updated.id]);
     modalRecord.value = JSON.parse(JSON.stringify(updated));
     const idx = records.value.findIndex((r) => r.id === updated.id);
     if (idx >= 0) records.value[idx] = updated;
+    toast.add({
+      severity: 'success',
+      summary: 'Recreation queued',
+      detail: 'The pipeline will recreate this job\'s content. Track progress on the In Progress tab.',
+      life: 5000,
+    });
     refreshStats();
   } catch (err) {
     console.error('[ContentRefreshedPage] recreate failed', err);
     preRecreateSnapshot.value = null;
+    toast.add({
+      severity: 'error',
+      summary: 'Recreation failed',
+      detail: err instanceof Error ? err.message : 'Could not enqueue this job.',
+      life: 6000,
+    });
   } finally {
     isRecreating.value = false;
     recreateInstructions.value = '';
