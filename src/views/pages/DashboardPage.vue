@@ -690,6 +690,11 @@ onMounted(async () => {
   color: #dc2626;
 }
 
+.status--missing_fields {
+  background: #fff7ed;
+  color: #b45309;
+}
+
 .status--for_review {
   background: #e0f7fa;
   color: #00838f;

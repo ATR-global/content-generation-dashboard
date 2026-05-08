@@ -563,8 +563,8 @@
             <i v-if="isSaving" class="pi pi-spin pi-spinner"></i>
             {{
               isSaving
-                ? PUBLISHED_STATUSES.has(modalRecord?.status ?? '')
-                  ? 'Saving & republishing…'
+                ? PUBLISH_ON_SAVE_STATUSES.has(modalRecord?.status ?? '')
+                  ? 'Saving & publishing…'
                   : 'Saving…'
                 : 'Save Changes'
             }}
@@ -703,6 +703,7 @@ import { recordRecreations } from '@/utils/recentRecreations';
 
 const toast = useToast();
 const PUBLISHED_STATUSES = new Set(['published']);
+const PUBLISH_ON_SAVE_STATUSES = new Set(['published', 'missing_fields']);
 
 const activeTab = ref<TabType>('unpublished');
 const searchQuery = ref('');
@@ -741,6 +742,7 @@ const UNPUBLISHED_STATUSES = [
   'processing',
   'content_ready',
   'content_error',
+  'missing_fields',
   'for_publishing',
   'failed',
   'error',
@@ -960,7 +962,7 @@ async function saveModal() {
   if (!modalRecord.value || isSaving.value) return;
   isSaving.value = true;
   const m = modalRecord.value;
-  const wasPublished = PUBLISHED_STATUSES.has(m.status);
+  const shouldPublish = PUBLISH_ON_SAVE_STATUSES.has(m.status);
 
   let updated: ManualRecord;
   try {
@@ -991,22 +993,22 @@ async function saveModal() {
     return;
   }
 
-  if (wasPublished) {
+  if (shouldPublish) {
     try {
       updated = await republishJob(m.id);
       toast.add({
         severity: 'success',
-        summary: 'Saved & republished',
+        summary: 'Saved & published',
         detail: 'Changes were saved and pushed to WordPress.',
         life: 4000,
       });
     } catch (err) {
-      console.error('[ContentRefreshedPage] republish failed', err);
+      console.error('[ContentRefreshedPage] publish failed', err);
       const idx = records.value.findIndex((r) => r.id === updated.id);
       if (idx >= 0) records.value[idx] = updated;
       toast.add({
         severity: 'warn',
-        summary: 'Saved, but republish failed',
+        summary: 'Saved, but publish failed',
         detail:
           err instanceof Error
             ? err.message
@@ -1465,6 +1467,11 @@ function revertRecreate() {
 .status--content_error {
   background: #fef2f2;
   color: #dc2626;
+}
+
+.status--missing_fields {
+  background: #fff7ed;
+  color: #b45309;
 }
 
 .status--for_review {

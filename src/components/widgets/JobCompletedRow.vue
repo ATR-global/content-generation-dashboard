@@ -251,6 +251,7 @@ const hasFooterDetails = computed(
 .status--processing { background: #eff6ff; color: #1d4ed8; }
 .status--content_ready { background: #ebf5ff; color: #0077e6; }
 .status--content_error { background: #fef2f2; color: #dc2626; }
+.status--missing_fields { background: #fff7ed; color: #b45309; }
 .status--for_review { background: #e0f7fa; color: #00838f; }
 .status--published { background: #ecfdf5; color: #20501e; }
 .status--for_publishing { background: #f5f3ff; color: #6d28d9; }
