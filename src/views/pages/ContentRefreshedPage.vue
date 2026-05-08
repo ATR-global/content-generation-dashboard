@@ -704,6 +704,7 @@ import { recordRecreations } from '@/utils/recentRecreations';
 const toast = useToast();
 const PUBLISHED_STATUSES = new Set(['published']);
 const PUBLISH_ON_SAVE_STATUSES = new Set(['published', 'missing_fields']);
+const FAILED_SCORE_THRESHOLD = 7.8;
 
 const activeTab = ref<TabType>('unpublished');
 const searchQuery = ref('');
@@ -996,12 +997,23 @@ async function saveModal() {
   if (shouldPublish) {
     try {
       updated = await republishJob(m.id);
-      toast.add({
-        severity: 'success',
-        summary: 'Saved & published',
-        detail: 'Changes were saved and pushed to WordPress.',
-        life: 4000,
-      });
+      const score = updated.score;
+      const lowScore = typeof score === 'number' && score < FAILED_SCORE_THRESHOLD;
+      if (lowScore) {
+        toast.add({
+          severity: 'warn',
+          summary: 'Saved & published — low content score',
+          detail: `New score is ${score.toFixed(1)} (threshold ${FAILED_SCORE_THRESHOLD}). Review the flagged issues or use Recreate Content.`,
+          life: 8000,
+        });
+      } else {
+        toast.add({
+          severity: 'success',
+          summary: 'Saved & published',
+          detail: 'Changes were saved and pushed to WordPress.',
+          life: 4000,
+        });
+      }
     } catch (err) {
       console.error('[ContentRefreshedPage] publish failed', err);
       const idx = records.value.findIndex((r) => r.id === updated.id);
