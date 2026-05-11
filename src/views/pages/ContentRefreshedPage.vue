@@ -177,6 +177,7 @@
                       <i class="pi pi-cloud-upload"></i>
                     </button>
                     <a
+                      v-if="row.pageUrl"
                       :href="row.pageUrl"
                       target="_blank"
                       class="action-btn"
@@ -184,6 +185,13 @@
                     >
                       <i class="pi pi-eye"></i>
                     </a>
+                    <span
+                      v-else
+                      class="action-btn action-btn--disabled"
+                      v-tippy="'No page URL available'"
+                    >
+                      <i class="pi pi-eye"></i>
+                    </span>
                     <a
                       :href="row.wpPostUrl"
                       target="_blank"
@@ -1566,6 +1574,16 @@ function onManualUploaded() {
 .action-btn:hover {
   color: var(--color-brand);
   border-color: var(--color-brand);
+}
+
+.action-btn--disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.action-btn--disabled:hover {
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
 }
 
 .empty-row {
