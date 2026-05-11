@@ -1,4 +1,4 @@
-import { httpGet, httpPost, httpPatch } from './httpService';
+import { httpGet, httpPost, httpPatch, httpPostMultipart } from './httpService';
 
 export interface ManualRecord {
   id: number;
@@ -150,4 +150,26 @@ export async function getJobsByIds(ids: number[]): Promise<ManualRecord[]> {
   if (!ids.length) return [];
   const res = await httpPost<ItemsResponse>(`${ROOT}/by-ids`, { ids });
   return res.items;
+}
+
+export interface ManualFileInfo {
+  id: string | null;
+  name: string | null;
+  file: string;
+  fileName: string | null;
+}
+
+export interface ManualResponse {
+  success: true;
+  manual: ManualFileInfo | null;
+  wpPageId: number;
+  message?: string;
+}
+
+export async function getCurrentManual(id: number): Promise<ManualResponse> {
+  return httpGet<ManualResponse>(`${ROOT}/${id}/manual`);
+}
+
+export async function uploadManual(id: number, file: File): Promise<ManualResponse> {
+  return httpPostMultipart<ManualResponse>(`${ROOT}/${id}/manual`, { file });
 }

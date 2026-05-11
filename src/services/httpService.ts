@@ -67,3 +67,25 @@ export async function httpPatch<T>(path: string, body?: unknown): Promise<T> {
   });
   return handle<T>(response, path);
 }
+
+export async function httpPostMultipart<T>(
+  path: string,
+  fields: Record<string, string | Blob | File | undefined | null>,
+): Promise<T> {
+  const formData = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined || value === null) continue;
+    if (value instanceof Blob) {
+      const filename = value instanceof File ? value.name : undefined;
+      formData.append(key, value, filename);
+    } else {
+      formData.append(key, value);
+    }
+  }
+  const response = await fetch(buildUrl(path), {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  return handle<T>(response, path);
+}

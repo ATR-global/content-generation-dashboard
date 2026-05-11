@@ -169,6 +169,13 @@
                     >
                       <i class="pi pi-pencil"></i>
                     </button>
+                    <button
+                      class="action-btn"
+                      v-tippy="'Upload Manual'"
+                      @click="openUploadManual(row)"
+                    >
+                      <i class="pi pi-cloud-upload"></i>
+                    </button>
                     <a
                       :href="row.pageUrl"
                       target="_blank"
@@ -644,6 +651,15 @@
       </div>
     </div>
 
+    <!-- Upload Manual Modal -->
+    <UploadManualModal
+      v-if="uploadManualRecord"
+      :job-id="uploadManualRecord.id"
+      :job-title="uploadManualRecord.title"
+      @close="closeUploadManual"
+      @uploaded="onManualUploaded"
+    />
+
     <!-- Preview Image Modal -->
     <div
       v-if="previewIndex !== null && modalRecord"
@@ -686,6 +702,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useToast } from '@/composables/useToast';
 import AppHeader from '@/components/common/AppHeader.vue';
+import UploadManualModal from '@/components/modal/UploadManualModal.vue';
 import { allStatuses, statusLabels } from '@/data/statusLabels';
 import {
   listJobs,
@@ -729,6 +746,7 @@ const isRecreating = ref(false);
 const preRecreateSnapshot = ref<ManualRecord | null>(null);
 const sortField = ref<'id' | 'score' | 'metaPages' | null>(null);
 const sortDir = ref<'asc' | 'desc'>('asc');
+const uploadManualRecord = ref<ManualRecord | null>(null);
 
 const hasCheckbox = computed(() => activeTab.value !== 'published');
 
@@ -1106,6 +1124,20 @@ function revertRecreate() {
   modalRecord.value = JSON.parse(JSON.stringify(preRecreateSnapshot.value));
   preRecreateSnapshot.value = null;
 }
+
+function openUploadManual(record: ManualRecord) {
+  uploadManualRecord.value = record;
+}
+
+function closeUploadManual() {
+  uploadManualRecord.value = null;
+}
+
+function onManualUploaded() {
+  // Manual swap is invisible to the listing — nothing to refresh in the table,
+  // but close the modal cleanly. Toast is emitted by the modal itself.
+  closeUploadManual();
+}
 </script>
 
 <style scoped>
@@ -1371,7 +1403,7 @@ function revertRecreate() {
 }
 
 .col-actions {
-  width: 120px;
+  width: 160px;
 }
 
 .actions-inner {
