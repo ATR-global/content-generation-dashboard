@@ -78,6 +78,13 @@
               <i class="pi pi-upload"></i>
               Publish Selected ({{ selectedIds.length }})
             </button>
+            <span class="result-count">
+              <strong>{{ totalRecords.toLocaleString() }}</strong>
+              {{ totalRecords === 1 ? 'result' : 'results' }}
+              <span v-if="hasActiveFilters" class="result-count-meta">
+                (filtered)
+              </span>
+            </span>
           </div>
         </div>
 
@@ -203,7 +210,7 @@
                   </div>
                 </td>
               </tr>
-              <tr v-if="records.length === 0">
+              <tr v-if="records.length === 0" class="empty-row-tr">
                 <td :colspan="hasCheckbox ? 9 : 8" class="empty-row">
                   No records found.
                 </td>
@@ -783,6 +790,10 @@ const unpublishedCount = computed(() => {
 const forReviewCount = computed(() => tabCounts.value.for_review || 0);
 const publishedCount = computed(() => tabCounts.value.published || 0);
 
+const hasActiveFilters = computed(
+  () => searchQuery.value.trim().length > 0 || statusFilter.value !== '',
+);
+
 const allVisibleSelected = computed(() => {
   const ids = records.value.map((r) => r.id);
   return ids.length > 0 && ids.every((id) => selectedIds.value.includes(id));
@@ -1229,6 +1240,12 @@ function onManualUploaded() {
   flex: 1;
 }
 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .search-box {
   position: relative;
   flex: 1;
@@ -1311,6 +1328,24 @@ function onManualUploaded() {
 
 .redo-btn:hover {
   background: #d97706;
+}
+
+/* Result Count */
+.result-count {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.result-count strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.result-count-meta {
+  margin-left: 4px;
+  color: var(--color-brand);
+  font-weight: 500;
 }
 
 /* Table */
@@ -1586,10 +1621,19 @@ function onManualUploaded() {
   border-color: var(--color-border);
 }
 
+.empty-row-tr,
+.empty-row-tr:hover {
+  background: transparent !important;
+  cursor: default;
+}
+
 .empty-row {
   text-align: center;
+  vertical-align: middle;
+  height: 240px;
   padding: 40px 12px;
   color: var(--color-text-muted);
+  user-select: none;
 }
 
 /* Pagination */
