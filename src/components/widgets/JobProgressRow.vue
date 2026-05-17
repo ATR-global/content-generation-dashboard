@@ -8,7 +8,16 @@
         </span>
       </div>
       <div class="row-title-block">
-        <span class="row-title" :title="record.title">{{ displayTitle }}</span>
+        <div class="row-title-row">
+          <span class="row-title" :title="record.title">{{ displayTitle }}</span>
+          <span
+            v-if="record.errorMessage"
+            class="row-error-badge"
+            v-tippy="record.errorMessage"
+          >
+            <i class="pi pi-exclamation-triangle"></i>
+          </span>
+        </div>
         <a
           v-if="record.pageUrl"
           class="row-page-link"
@@ -161,6 +170,13 @@ const hasFooterDetails = computed(
   min-width: 0;
 }
 
+.row-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .row-title {
   font-size: 14px;
   font-weight: 600;
@@ -168,6 +184,15 @@ const hasFooterDetails = computed(
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.row-error-badge {
+  display: inline-flex;
+  align-items: center;
+  color: #dc2626;
+  font-size: 14px;
+  flex-shrink: 0;
+  cursor: help;
 }
 
 .row-page-link {

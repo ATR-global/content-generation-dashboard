@@ -25,6 +25,7 @@ export interface ManualRecord {
   troubleshootingGuideQuestions: string[];
   troubleshootingGuideAnswers: string[];
   contentIssuesRecommendations: string;
+  errorMessage: string;
 }
 
 export type TabType = 'unpublished' | 'for_review' | 'published' | 'failed_score';
@@ -108,10 +109,12 @@ export async function recreateJob(
   id: number,
   instructions: string,
   skipIncorrectManualCheck = false,
+  useHigherLLMVersion = false,
 ): Promise<ManualRecord> {
   const res = await httpPost<ItemResponse>(`${ROOT}/${id}/recreate`, {
     instructions,
     skipIncorrectManualCheck,
+    useHigherLLMVersion,
   });
   return res.item;
 }
@@ -124,10 +127,12 @@ export async function republishJob(id: number): Promise<ManualRecord> {
 export function bulkRedo(
   ids: number[],
   skipIncorrectManualCheck = false,
+  useHigherLLMVersion = false,
 ): Promise<BulkResponse> {
   return httpPost<BulkResponse>(`${ROOT}/bulk-redo`, {
     ids,
     skipIncorrectManualCheck,
+    useHigherLLMVersion,
   });
 }
 

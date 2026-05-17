@@ -140,6 +140,13 @@
                         {{ row.title }}
                       </a>
                       <span
+                        v-if="row.errorMessage"
+                        class="error-badge"
+                        v-tippy="row.errorMessage"
+                      >
+                        <i class="pi pi-exclamation-triangle"></i>
+                      </span>
+                      <span
                         v-if="row.contentIssuesRecommendations"
                         class="issues-badge"
                         v-tippy="'Has content issues / recommendations'"
@@ -264,7 +271,16 @@
     <div v-if="modalRecord" class="modal-overlay" @click.self="closeModal">
       <div class="modal-panel">
         <div class="modal-header">
-          <h2 class="modal-title">{{ modalRecord.title }}</h2>
+          <h2 class="modal-title">
+            {{ modalRecord.title }}
+            <span
+              v-if="modalRecord.errorMessage"
+              class="error-badge"
+              v-tippy="modalRecord.errorMessage"
+            >
+              <i class="pi pi-exclamation-triangle"></i>
+            </span>
+          </h2>
           <button class="modal-close" @click="closeModal">
             <i class="pi pi-times"></i>
           </button>
@@ -637,6 +653,19 @@
             </span>
           </span>
         </label>
+        <label class="confirm-skip-check">
+          <input
+            type="checkbox"
+            v-model="redoUseHigherLLMVersion"
+          />
+          <span class="confirm-skip-check__label">
+            Use higher LLM version
+            <span class="confirm-skip-check__hint">
+              Re-run these jobs with a higher-capability Gemini model. Use only for persistent errors that
+              don't get fixed upon retry — the higher model costs more per call.
+            </span>
+          </span>
+        </label>
         <div class="confirm-actions">
           <button class="btn-ghost" @click="showRedoConfirm = false">Cancel</button>
           <button class="btn-warning" @click="confirmRedo">Redo Content</button>
@@ -682,6 +711,19 @@
             <span class="confirm-skip-check__hint">
               Bypass the LLM validation that the PDF matches this brand and appliance category.
               Use only when you've visually confirmed the manual is correct.
+            </span>
+          </span>
+        </label>
+        <label class="confirm-skip-check">
+          <input
+            type="checkbox"
+            v-model="recreateUseHigherLLMVersion"
+          />
+          <span class="confirm-skip-check__label">
+            Use higher LLM version
+            <span class="confirm-skip-check__hint">
+              Re-run this job with a higher-capability Gemini model. Use only for persistent errors that
+              don't get fixed upon retry — the higher model costs more per call.
             </span>
           </span>
         </label>
@@ -782,9 +824,11 @@ const modalOriginal = ref<ManualRecord | null>(null);
 const showPublishConfirm = ref(false);
 const showRedoConfirm = ref(false);
 const redoSkipIncorrectManualCheck = ref(false);
+const redoUseHigherLLMVersion = ref(false);
 const showRecreateConfirm = ref(false);
 const recreateInstructions = ref('');
 const recreateSkipIncorrectManualCheck = ref(false);
+const recreateUseHigherLLMVersion = ref(false);
 const isRecreating = ref(false);
 const preRecreateSnapshot = ref<ManualRecord | null>(null);
 const sortField = ref<'id' | 'score' | 'metaPages' | null>(null);
@@ -938,14 +982,16 @@ async function confirmPublish() {
 
 function openRedoConfirm() {
   redoSkipIncorrectManualCheck.value = false;
+  redoUseHigherLLMVersion.value = false;
   showRedoConfirm.value = true;
 }
 
 async function confirmRedo() {
   const submittedIds = [...selectedIds.value];
   const skipIncorrectManualCheck = redoSkipIncorrectManualCheck.value;
+  const useHigherLLMVersion = redoUseHigherLLMVersion.value;
   try {
-    await apiBulkRedo(submittedIds, skipIncorrectManualCheck);
+    await apiBulkRedo(submittedIds, skipIncorrectManualCheck, useHigherLLMVersion);
     recordRecreations(submittedIds);
     toast.add({
       severity: 'success',
@@ -964,6 +1010,7 @@ async function confirmRedo() {
   } finally {
     showRedoConfirm.value = false;
     redoSkipIncorrectManualCheck.value = false;
+    redoUseHigherLLMVersion.value = false;
     selectedIds.value = [];
     refreshAll();
   }
@@ -981,6 +1028,7 @@ function openModal(record: ManualRecord) {
   modalOriginal.value = JSON.parse(JSON.stringify(record));
   recreateInstructions.value = '';
   recreateSkipIncorrectManualCheck.value = false;
+  recreateUseHigherLLMVersion.value = false;
   preRecreateSnapshot.value = null;
   isRecreating.value = false;
   showRecreateConfirm.value = false;
@@ -992,6 +1040,7 @@ function closeModal() {
   modalOriginal.value = null;
   recreateInstructions.value = '';
   recreateSkipIncorrectManualCheck.value = false;
+  recreateUseHigherLLMVersion.value = false;
   preRecreateSnapshot.value = null;
   isRecreating.value = false;
   isSaving.value = false;
@@ -1127,12 +1176,14 @@ const hasUnsavedEdits = computed(() => {
 
 function openRecreateConfirm() {
   recreateSkipIncorrectManualCheck.value = false;
+  recreateUseHigherLLMVersion.value = false;
   showRecreateConfirm.value = true;
 }
 
 async function confirmRecreate() {
   if (!modalRecord.value) return;
   const skipIncorrectManualCheck = recreateSkipIncorrectManualCheck.value;
+  const useHigherLLMVersion = recreateUseHigherLLMVersion.value;
   showRecreateConfirm.value = false;
   preRecreateSnapshot.value = JSON.parse(JSON.stringify(modalRecord.value));
   isRecreating.value = true;
@@ -1142,6 +1193,7 @@ async function confirmRecreate() {
       modalRecord.value.id,
       recreateInstructions.value,
       skipIncorrectManualCheck,
+      useHigherLLMVersion,
     );
     recordRecreations([updated.id]);
     modalRecord.value = JSON.parse(JSON.stringify(updated));
@@ -1167,6 +1219,7 @@ async function confirmRecreate() {
     isRecreating.value = false;
     recreateInstructions.value = '';
     recreateSkipIncorrectManualCheck.value = false;
+    recreateUseHigherLLMVersion.value = false;
   }
 }
 
@@ -1531,6 +1584,15 @@ function onManualUploaded() {
   color: #d97706;
   font-size: 14px;
   flex-shrink: 0;
+}
+
+.error-badge {
+  display: inline-flex;
+  align-items: center;
+  color: #dc2626;
+  font-size: 14px;
+  flex-shrink: 0;
+  cursor: help;
 }
 
 .title-link {
