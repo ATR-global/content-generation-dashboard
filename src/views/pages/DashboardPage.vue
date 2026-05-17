@@ -255,9 +255,9 @@ interface PipelineTask {
 }
 
 const tasks: PipelineTask[] = [
-  { name: 'Refresh content for GE Ranges', status: 'in_progress' },
+  { name: 'Refresh content for GE Ranges', status: 'done' },
+  { name: 'Refresh content for GE Refrigerators', status: 'in_progress' },
   { name: 'Refresh content for GE Dishwashers', status: 'open' },
-  { name: 'Refresh content for GE Refrigerators', status: 'open' },
 ];
 
 function taskIcon(status: TaskStatus): string {
