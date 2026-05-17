@@ -65,7 +65,7 @@
             <button
               v-if="(activeTab === 'unpublished' || activeTab === 'failed_score') && selectedIds.length > 0"
               class="redo-btn"
-              @click="showRedoConfirm = true"
+              @click="openRedoConfirm"
             >
               <i class="pi pi-refresh"></i>
               Redo Content ({{ selectedIds.length }})
@@ -615,7 +615,7 @@
 
     <!-- Redo Content Confirmation Modal -->
     <div v-if="showRedoConfirm" class="modal-overlay" @click.self="showRedoConfirm = false">
-      <div class="confirm-panel">
+      <div class="confirm-panel confirm-panel--left">
         <div class="confirm-icon confirm-icon--redo">
           <i class="pi pi-refresh"></i>
         </div>
@@ -624,6 +624,19 @@
           You are about to redo content generation for <strong>{{ selectedIds.length }}</strong>
           {{ selectedIds.length === 1 ? 'item' : 'items' }}. The existing content will be recreated.
         </p>
+        <label class="confirm-skip-check">
+          <input
+            type="checkbox"
+            v-model="redoSkipIncorrectManualCheck"
+          />
+          <span class="confirm-skip-check__label">
+            Skip incorrect manual check
+            <span class="confirm-skip-check__hint">
+              Bypass the LLM validation that the PDF matches each job's brand and appliance category.
+              Use only when you've visually confirmed the manuals are correct.
+            </span>
+          </span>
+        </label>
         <div class="confirm-actions">
           <button class="btn-ghost" @click="showRedoConfirm = false">Cancel</button>
           <button class="btn-warning" @click="confirmRedo">Redo Content</button>
@@ -659,6 +672,19 @@
             <strong>overwritten</strong> by the recreated content.
           </span>
         </div>
+        <label class="confirm-skip-check">
+          <input
+            type="checkbox"
+            v-model="recreateSkipIncorrectManualCheck"
+          />
+          <span class="confirm-skip-check__label">
+            Skip incorrect manual check
+            <span class="confirm-skip-check__hint">
+              Bypass the LLM validation that the PDF matches this brand and appliance category.
+              Use only when you've visually confirmed the manual is correct.
+            </span>
+          </span>
+        </label>
         <div class="confirm-actions">
           <button class="btn-ghost" @click="showRecreateConfirm = false">Cancel</button>
           <button class="btn-warning" @click="confirmRecreate">Recreate</button>
@@ -755,8 +781,10 @@ const modalRecord = ref<ManualRecord | null>(null);
 const modalOriginal = ref<ManualRecord | null>(null);
 const showPublishConfirm = ref(false);
 const showRedoConfirm = ref(false);
+const redoSkipIncorrectManualCheck = ref(false);
 const showRecreateConfirm = ref(false);
 const recreateInstructions = ref('');
+const recreateSkipIncorrectManualCheck = ref(false);
 const isRecreating = ref(false);
 const preRecreateSnapshot = ref<ManualRecord | null>(null);
 const sortField = ref<'id' | 'score' | 'metaPages' | null>(null);
@@ -908,10 +936,16 @@ async function confirmPublish() {
   }
 }
 
+function openRedoConfirm() {
+  redoSkipIncorrectManualCheck.value = false;
+  showRedoConfirm.value = true;
+}
+
 async function confirmRedo() {
   const submittedIds = [...selectedIds.value];
+  const skipIncorrectManualCheck = redoSkipIncorrectManualCheck.value;
   try {
-    await apiBulkRedo(submittedIds);
+    await apiBulkRedo(submittedIds, skipIncorrectManualCheck);
     recordRecreations(submittedIds);
     toast.add({
       severity: 'success',
@@ -929,6 +963,7 @@ async function confirmRedo() {
     });
   } finally {
     showRedoConfirm.value = false;
+    redoSkipIncorrectManualCheck.value = false;
     selectedIds.value = [];
     refreshAll();
   }
@@ -945,6 +980,7 @@ function openModal(record: ManualRecord) {
   modalRecord.value = JSON.parse(JSON.stringify(record));
   modalOriginal.value = JSON.parse(JSON.stringify(record));
   recreateInstructions.value = '';
+  recreateSkipIncorrectManualCheck.value = false;
   preRecreateSnapshot.value = null;
   isRecreating.value = false;
   showRecreateConfirm.value = false;
@@ -955,6 +991,7 @@ function closeModal() {
   modalRecord.value = null;
   modalOriginal.value = null;
   recreateInstructions.value = '';
+  recreateSkipIncorrectManualCheck.value = false;
   preRecreateSnapshot.value = null;
   isRecreating.value = false;
   isSaving.value = false;
@@ -1089,17 +1126,23 @@ const hasUnsavedEdits = computed(() => {
 });
 
 function openRecreateConfirm() {
+  recreateSkipIncorrectManualCheck.value = false;
   showRecreateConfirm.value = true;
 }
 
 async function confirmRecreate() {
   if (!modalRecord.value) return;
+  const skipIncorrectManualCheck = recreateSkipIncorrectManualCheck.value;
   showRecreateConfirm.value = false;
   preRecreateSnapshot.value = JSON.parse(JSON.stringify(modalRecord.value));
   isRecreating.value = true;
 
   try {
-    const updated = await recreateJob(modalRecord.value.id, recreateInstructions.value);
+    const updated = await recreateJob(
+      modalRecord.value.id,
+      recreateInstructions.value,
+      skipIncorrectManualCheck,
+    );
     recordRecreations([updated.id]);
     modalRecord.value = JSON.parse(JSON.stringify(updated));
     const idx = records.value.findIndex((r) => r.id === updated.id);
@@ -1123,6 +1166,7 @@ async function confirmRecreate() {
   } finally {
     isRecreating.value = false;
     recreateInstructions.value = '';
+    recreateSkipIncorrectManualCheck.value = false;
   }
 }
 
@@ -2371,6 +2415,38 @@ function onManualUploaded() {
 
 .confirm-panel--left .confirm-actions {
   justify-content: flex-end;
+}
+
+.confirm-skip-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: var(--color-bg-section);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.confirm-skip-check input[type='checkbox'] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.confirm-skip-check__label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confirm-skip-check__hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
 }
 
 @media (max-width: 768px) {
