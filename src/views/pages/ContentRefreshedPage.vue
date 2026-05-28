@@ -179,7 +179,7 @@
                     {{ statusLabels[row.status] || row.status }}
                   </span>
                 </td>
-                <td class="col-type">{{ row.metaApplianceType }}</td>
+                <td class="col-type">{{ row.productType }}</td>
                 <td class="col-pages">{{ row.metaPages }}</td>
                 <td class="col-lang">{{ row.metaLanguage }}</td>
                 <td class="col-actions">

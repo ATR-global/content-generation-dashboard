@@ -16,6 +16,7 @@ export interface ManualRecord {
   metaPages: number;
   metaLanguage: string;
   metaApplianceType: string;
+  productType: string;
   documentOverview: string;
   quickTroubleshootingGuide: string[];
   technicalSpecs: string[];
