@@ -34,10 +34,18 @@ export interface ListParams {
   tab?: TabType;
   status?: string;
   q?: string;
+  brand?: string;
+  productType?: string;
   sort?: 'id' | 'score' | 'metaPages';
   order?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;
+}
+
+export interface FilterOptionsResponse {
+  success: true;
+  brands: string[];
+  productTypes: string[];
 }
 
 export interface ListResponse {
@@ -85,11 +93,17 @@ export function listJobs(params: ListParams = {}): Promise<ListResponse> {
     tab: params.tab,
     status: params.status,
     q: params.q,
+    brand: params.brand,
+    productType: params.productType,
     sort: params.sort,
     order: params.order,
     page: params.page,
     pageSize: params.pageSize,
   });
+}
+
+export function getFilterOptions(): Promise<FilterOptionsResponse> {
+  return httpGet<FilterOptionsResponse>(`${ROOT}/filter-options`);
 }
 
 export async function getJob(id: number): Promise<ManualRecord> {

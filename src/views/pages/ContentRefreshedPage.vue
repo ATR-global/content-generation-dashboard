@@ -60,6 +60,14 @@
                 {{ statusLabels[s] }}
               </option>
             </select>
+            <select v-model="brandFilter" class="filter-select">
+              <option value="">All Brands</option>
+              <option v-for="b in brandOptions" :key="b" :value="b">{{ b }}</option>
+            </select>
+            <select v-model="productTypeFilter" class="filter-select">
+              <option value="">All Product Types</option>
+              <option v-for="t in productTypeOptions" :key="t" :value="t">{{ t }}</option>
+            </select>
           </div>
           <div class="toolbar-right">
             <button
@@ -795,6 +803,7 @@ import {
   bulkRedo as apiBulkRedo,
   bulkPublish as apiBulkPublish,
   getStats,
+  getFilterOptions,
   type ListParams,
   type ManualRecord,
   type TabType,
@@ -809,6 +818,10 @@ const FAILED_SCORE_THRESHOLD = 7.8;
 const activeTab = ref<TabType>('unpublished');
 const searchQuery = ref('');
 const statusFilter = ref('');
+const brandFilter = ref('');
+const productTypeFilter = ref('');
+const brandOptions = ref<string[]>([]);
+const productTypeOptions = ref<string[]>([]);
 const selectedIds = ref<number[]>([]);
 const currentPage = ref(1);
 const pageSize = 50;
@@ -863,7 +876,11 @@ const forReviewCount = computed(() => tabCounts.value.for_review || 0);
 const publishedCount = computed(() => tabCounts.value.published || 0);
 
 const hasActiveFilters = computed(
-  () => searchQuery.value.trim().length > 0 || statusFilter.value !== '',
+  () =>
+    searchQuery.value.trim().length > 0 ||
+    statusFilter.value !== '' ||
+    brandFilter.value !== '' ||
+    productTypeFilter.value !== '',
 );
 
 const allVisibleSelected = computed(() => {
@@ -880,6 +897,8 @@ async function fetchList() {
       tab: activeTab.value,
       status: statusFilter.value || undefined,
       q: searchQuery.value.trim() || undefined,
+      brand: brandFilter.value || undefined,
+      productType: productTypeFilter.value || undefined,
       sort: sortField.value || undefined,
       order: sortField.value ? sortDir.value : undefined,
       page: currentPage.value,
@@ -911,11 +930,27 @@ async function refreshAll() {
   await Promise.all([fetchList(), refreshStats()]);
 }
 
+async function loadFilterOptions() {
+  try {
+    const res = await getFilterOptions();
+    brandOptions.value = res.brands;
+    productTypeOptions.value = res.productTypes;
+  } catch (err) {
+    console.error('[ContentRefreshedPage] filter options fetch failed', err);
+  }
+}
+
 onMounted(() => {
   refreshAll();
+  loadFilterOptions();
 });
 
 watch([activeTab, statusFilter, sortField, sortDir, currentPage], () => {
+  fetchList();
+});
+
+watch([brandFilter, productTypeFilter], () => {
+  currentPage.value = 1;
   fetchList();
 });
 
