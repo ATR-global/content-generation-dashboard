@@ -55,6 +55,12 @@ const tabs = [
     label: 'In Progress',
     icon: 'pi pi-hourglass',
   },
+  {
+    to: '/prepare-content-refresh-jobs',
+    routeName: 'PrepareContentRefreshJobs',
+    label: 'Prepare Content Refresh Jobs',
+    icon: 'pi pi-database',
+  },
 ];
 
 async function onLogout() {
