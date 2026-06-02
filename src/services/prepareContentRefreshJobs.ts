@@ -86,6 +86,7 @@ export interface RunCounters {
   published: number;
   failed: number;
   incorrect_manual: number;
+  manual_does_not_exist: number;
   missing_fields: number;
   other: number;
   terminal: number;

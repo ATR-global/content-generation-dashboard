@@ -725,6 +725,11 @@ onMounted(async () => {
   color: #6d28d9;
 }
 
+.status--manual_does_not_exist {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 /* Mini Table (Recent Activity) */
 .mini-table {
   width: 100%;

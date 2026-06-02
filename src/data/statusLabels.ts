@@ -10,6 +10,7 @@ export const allStatuses = [
   'failed',
   'error',
   'incorrect_manual',
+  'manual_does_not_exist',
 ] as const;
 
 export type ManualStatus = (typeof allStatuses)[number];
@@ -26,6 +27,7 @@ export const statusLabels: Record<string, string> = {
   failed: 'Failed',
   error: 'Error',
   incorrect_manual: 'Incorrect Manual',
+  manual_does_not_exist: 'Manual Does Not Exist',
 };
 
 export const statusColors: Record<string, string> = {
@@ -40,4 +42,5 @@ export const statusColors: Record<string, string> = {
   failed: '#dc2626',
   error: '#f97316',
   incorrect_manual: '#8b5cf6',
+  manual_does_not_exist: '#64748b',
 };

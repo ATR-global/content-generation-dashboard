@@ -283,6 +283,7 @@ const hasFooterDetails = computed(
 .status--failed { background: #fef2f2; color: #991b1b; }
 .status--error { background: #fff7ed; color: #c2410c; }
 .status--incorrect_manual { background: #f5f3ff; color: #6d28d9; }
+.status--manual_does_not_exist { background: #f1f5f9; color: #475569; }
 
 .score-badge {
   display: inline-block;

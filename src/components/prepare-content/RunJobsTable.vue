@@ -86,5 +86,6 @@ function truncate(value: string | null, max: number): string {
 .status-pill--processing { background: #bfdbfe; color: #1e40af; }
 .status-pill--pending { background: #fde68a; color: #854d0e; }
 .status-pill--failed, .status-pill--missing_fields, .status-pill--incorrect_manual { background: #fecaca; color: #991b1b; }
+.status-pill--manual_does_not_exist { background: #e2e8f0; color: #475569; }
 .empty { padding: 24px; color: var(--color-text-muted); text-align: center; }
 </style>

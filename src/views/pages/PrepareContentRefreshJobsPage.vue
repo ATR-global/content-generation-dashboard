@@ -79,6 +79,7 @@ const EMPTY_COUNTERS: RunCounters = {
   published: 0,
   failed: 0,
   incorrect_manual: 0,
+  manual_does_not_exist: 0,
   missing_fields: 0,
   other: 0,
   terminal: 0,

@@ -67,6 +67,10 @@
           <span class="counter-label">Incorrect manual</span>
           <span class="counter-value">{{ counters.incorrect_manual }}</span>
         </li>
+        <li class="counter counter--manual-missing">
+          <span class="counter-label">Manual missing</span>
+          <span class="counter-value">{{ counters.manual_does_not_exist }}</span>
+        </li>
       </ul>
 
       <div v-if="lastPolledLabel" class="poll-meta">
@@ -154,6 +158,7 @@ const lastPolledLabel = computed(() => {
 .counter-value { font-size: 18px; font-weight: 600; color: var(--color-primary); }
 .counter--published .counter-value { color: #166534; }
 .counter--failed .counter-value, .counter--missing .counter-value, .counter--incorrect .counter-value { color: #991b1b; }
+.counter--manual-missing .counter-value { color: #475569; }
 
 .poll-meta { font-size: 12px; color: var(--color-text-muted); display: inline-flex; align-items: center; gap: 6px; }
 .btn-primary, .btn-ghost {

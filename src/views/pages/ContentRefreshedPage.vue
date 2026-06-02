@@ -866,6 +866,7 @@ const UNPUBLISHED_STATUSES = [
   'failed',
   'error',
   'incorrect_manual',
+  'manual_does_not_exist',
 ];
 
 const unpublishedCount = computed(() => {
@@ -1730,6 +1731,11 @@ function onManualUploaded() {
 .status--incorrect_manual {
   background: #f5f3ff;
   color: #6d28d9;
+}
+
+.status--manual_does_not_exist {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .action-btn {
