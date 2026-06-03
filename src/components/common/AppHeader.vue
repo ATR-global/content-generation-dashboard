@@ -52,7 +52,7 @@ const tabs = [
   {
     to: '/in-progress',
     routeName: 'InProgress',
-    label: 'In Progress',
+    label: 'Content Refresh Jobs In Progress',
     icon: 'pi pi-hourglass',
   },
   {

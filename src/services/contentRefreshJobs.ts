@@ -155,6 +155,18 @@ export function bulkPublish(ids: number[]): Promise<BulkResponse> {
   return httpPost<BulkResponse>(`${ROOT}/bulk-publish`, { ids });
 }
 
+export interface ProcessAllPendingResponse {
+  ok: true;
+  message?: string;
+}
+
+// Triggers a pipeline refresh for every pending job. The backend forwards to the
+// ingestion pipeline with no jobIds (its "run all pending" mode) and returns 202
+// without waiting for the batch to finish.
+export function processAllPending(): Promise<ProcessAllPendingResponse> {
+  return httpPost<ProcessAllPendingResponse>(`${ROOT}/process-all-pending`);
+}
+
 export function getStats(): Promise<StatsResponse> {
   return httpGet<StatsResponse>(`${ROOT}/stats`);
 }

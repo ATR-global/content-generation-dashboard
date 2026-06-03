@@ -17,6 +17,14 @@
           </button>
           <button
             class="tab-btn"
+            :class="{ active: activeTab === 'pending' }"
+            @click="activeTab = 'pending'"
+          >
+            Pending
+            <span class="tab-count">{{ pendingCount }}</span>
+          </button>
+          <button
+            class="tab-btn"
             :class="{ active: activeTab === 'for_review' }"
             @click="activeTab = 'for_review'"
           >
@@ -71,12 +79,22 @@
           </div>
           <div class="toolbar-right">
             <button
-              v-if="(activeTab === 'unpublished' || activeTab === 'failed_score') && selectedIds.length > 0"
+              v-if="(activeTab === 'unpublished' || activeTab === 'failed_score' || activeTab === 'pending') && selectedIds.length > 0"
               class="redo-btn"
               @click="openRedoConfirm"
             >
               <i class="pi pi-refresh"></i>
               Generate Content ({{ selectedIds.length }})
+            </button>
+            <button
+              v-if="activeTab === 'pending' && selectedIds.length === 0"
+              class="redo-btn"
+              :disabled="pendingCount === 0 || processingAllPending"
+              @click="showProcessAllConfirm = true"
+              v-tippy="'Runs every job the pipeline considers pending (includes content-ready and error retries).'"
+            >
+              <i class="pi pi-bolt"></i>
+              {{ processingAllPending ? 'Starting…' : `Process All Pending Jobs (${pendingCount})` }}
             </button>
             <button
               v-if="activeTab === 'for_review' && selectedIds.length > 0"
@@ -637,6 +655,29 @@
       </div>
     </div>
 
+    <!-- Process All Pending Jobs Confirmation Modal -->
+    <div v-if="showProcessAllConfirm" class="modal-overlay" @click.self="showProcessAllConfirm = false">
+      <div class="confirm-panel confirm-panel--left">
+        <div class="confirm-icon confirm-icon--redo">
+          <i class="pi pi-bolt"></i>
+        </div>
+        <h3 class="confirm-title">Process All Pending Jobs</h3>
+        <p class="confirm-text">
+          You are about to trigger a content refresh for <strong>all pending jobs</strong>.
+          The pipeline will process every job it considers pending — this also includes
+          content-ready and error retries, so it may cover more than the
+          <strong>{{ pendingCount }}</strong> shown on this tab. Progress is tracked on the
+          Content Refresh Jobs In Progress tab.
+        </p>
+        <div class="confirm-actions">
+          <button class="btn-ghost" @click="showProcessAllConfirm = false">Cancel</button>
+          <button class="btn-warning" :disabled="processingAllPending" @click="confirmProcessAll">
+            {{ processingAllPending ? 'Starting…' : 'Process All Pending Jobs' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Generate Content Confirmation Modal -->
     <div v-if="showRedoConfirm" class="modal-overlay" @click.self="showRedoConfirm = false">
       <div class="confirm-panel confirm-panel--left">
@@ -803,12 +844,17 @@ import {
   republishJob,
   bulkRedo as apiBulkRedo,
   bulkPublish as apiBulkPublish,
+  processAllPending as apiProcessAllPending,
   getStats,
   getFilterOptions,
   type ListParams,
   type ManualRecord,
   type TabType,
 } from '@/services/contentRefreshJobs';
+
+// The Pending tab is a frontend-only view over status='pending'; the backend
+// list endpoint has no 'pending' tab, so it is mapped onto tab='unpublished'.
+type ViewTab = TabType | 'pending';
 import { recordRecreations } from '@/utils/recentRecreations';
 
 const toast = useToast();
@@ -816,7 +862,7 @@ const PUBLISHED_STATUSES = new Set(['published']);
 const PUBLISH_ON_SAVE_STATUSES = new Set(['published', 'missing_fields']);
 const FAILED_SCORE_THRESHOLD = 7.8;
 
-const activeTab = ref<TabType>('unpublished');
+const activeTab = ref<ViewTab>('unpublished');
 const searchQuery = ref('');
 const statusFilter = ref('');
 const brandFilter = ref('');
@@ -837,6 +883,8 @@ const modalRecord = ref<ManualRecord | null>(null);
 const modalOriginal = ref<ManualRecord | null>(null);
 const showPublishConfirm = ref(false);
 const showRedoConfirm = ref(false);
+const showProcessAllConfirm = ref(false);
+const processingAllPending = ref(false);
 const redoSkipIncorrectManualCheck = ref(false);
 const redoUseHigherLLMVersion = ref(false);
 const showRecreateConfirm = ref(false);
@@ -876,6 +924,7 @@ const unpublishedCount = computed(() => {
 });
 const forReviewCount = computed(() => tabCounts.value.for_review || 0);
 const publishedCount = computed(() => tabCounts.value.published || 0);
+const pendingCount = computed(() => tabCounts.value.pending || 0);
 
 const hasActiveFilters = computed(
   () =>
@@ -896,8 +945,8 @@ async function fetchList() {
   loading.value = true;
   try {
     const params: ListParams = {
-      tab: activeTab.value,
-      status: statusFilter.value || undefined,
+      tab: activeTab.value === 'pending' ? 'unpublished' : activeTab.value,
+      status: activeTab.value === 'pending' ? 'pending' : statusFilter.value || undefined,
       q: searchQuery.value.trim() || undefined,
       brand: brandFilter.value || undefined,
       productType: productTypeFilter.value || undefined,
@@ -1033,7 +1082,7 @@ async function confirmRedo() {
     toast.add({
       severity: 'success',
       summary: 'Content generation jobs queued',
-      detail: `${submittedIds.length} ${submittedIds.length === 1 ? 'job has' : 'jobs have'} been sent to the pipeline. Track progress on the In Progress tab.`,
+      detail: `${submittedIds.length} ${submittedIds.length === 1 ? 'job has' : 'jobs have'} been sent to the pipeline. Track progress on the Content Refresh Jobs In Progress tab.`,
       life: 5000,
     });
   } catch (err) {
@@ -1049,6 +1098,36 @@ async function confirmRedo() {
     redoSkipIncorrectManualCheck.value = false;
     redoUseHigherLLMVersion.value = false;
     selectedIds.value = [];
+    refreshAll();
+  }
+}
+
+async function confirmProcessAll() {
+  if (processingAllPending.value) return;
+  processingAllPending.value = true;
+  try {
+    await apiProcessAllPending();
+    toast.add({
+      severity: 'success',
+      summary: 'Refresh started',
+      detail: 'All pending jobs have been sent to the pipeline. Track progress on the Content Refresh Jobs In Progress tab.',
+      life: 5000,
+    });
+    showProcessAllConfirm.value = false;
+  } catch (err) {
+    console.error('[ContentRefreshedPage] process all pending failed', err);
+    const alreadyRunning = err instanceof Error && /already running|in progress|409/i.test(err.message);
+    toast.add({
+      severity: alreadyRunning ? 'warn' : 'error',
+      summary: alreadyRunning ? 'Refresh already running' : 'Could not start refresh',
+      detail: alreadyRunning
+        ? 'A pending-jobs refresh is already in progress. Track it on the Content Refresh Jobs In Progress tab.'
+        : err instanceof Error ? err.message : 'Could not trigger the pending-jobs refresh.',
+      life: 6000,
+    });
+    if (alreadyRunning) showProcessAllConfirm.value = false;
+  } finally {
+    processingAllPending.value = false;
     refreshAll();
   }
 }
@@ -1239,7 +1318,7 @@ async function confirmRecreate() {
     toast.add({
       severity: 'success',
       summary: 'Recreation queued',
-      detail: 'The pipeline will recreate this job\'s content. Track progress on the In Progress tab.',
+      detail: 'The pipeline will recreate this job\'s content. Track progress on the Content Refresh Jobs In Progress tab.',
       life: 5000,
     });
     refreshStats();

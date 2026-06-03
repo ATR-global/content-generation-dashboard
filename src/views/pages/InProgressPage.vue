@@ -5,7 +5,7 @@
       <div class="page-content">
         <div class="page-header">
           <div>
-            <h1 class="page-title">Content Recreation In Progress</h1>
+            <h1 class="page-title">Content Refresh Jobs In Progress</h1>
             <p class="page-subtitle">
               Jobs the ingestion pipeline is currently working on. Updates every 5s.
             </p>
