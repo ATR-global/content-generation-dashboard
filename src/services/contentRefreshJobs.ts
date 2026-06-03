@@ -202,12 +202,28 @@ export interface ManualFileInfo {
 export interface ManualResponse {
   success: true;
   manual: ManualFileInfo | null;
+  manualPath?: string | null;
   wpPageId: number;
+  message?: string;
+}
+
+export interface ManualPathResponse {
+  success: true;
+  manualPath: string;
   message?: string;
 }
 
 export async function getCurrentManual(id: number): Promise<ManualResponse> {
   return httpGet<ManualResponse>(`${ROOT}/${id}/manual`);
+}
+
+export async function setManualPath(
+  id: number,
+  manualPath: string,
+): Promise<ManualPathResponse> {
+  return httpPatch<ManualPathResponse>(`${ROOT}/${id}/manual-path`, {
+    manualPath,
+  });
 }
 
 export async function uploadManual(id: number, file: File): Promise<ManualResponse> {

@@ -45,6 +45,34 @@
         </section>
 
         <section class="section">
+          <h3 class="section-title">Manual Path (used by refresh)</h3>
+          <p class="section-hint">
+            The content refresh pipeline reads this path directly. Uploading a new
+            file updates it automatically, or set/correct it manually below.
+          </p>
+          <div class="path-row">
+            <input
+              v-model="manualPath"
+              type="text"
+              class="path-input"
+              placeholder="/aum/manual-file.pdf or full Spaces URL"
+              spellcheck="false"
+              :disabled="isUploading || isSavingPath || isLoading"
+            />
+            <button
+              type="button"
+              class="btn-secondary"
+              :disabled="!canSavePath"
+              @click="onSavePath"
+            >
+              <i v-if="isSavingPath" class="pi pi-spin pi-spinner"></i>
+              <i v-else class="pi pi-save"></i>
+              {{ isSavingPath ? 'Saving…' : 'Save path' }}
+            </button>
+          </div>
+        </section>
+
+        <section class="section">
           <h3 class="section-title">Upload New Manual (PDF only)</h3>
           <div
             class="dropzone"
@@ -119,6 +147,7 @@ import { useToast } from '@/composables/useToast';
 import {
   getCurrentManual,
   uploadManual,
+  setManualPath,
   type ManualFileInfo,
 } from '@/services/contentRefreshJobs';
 
@@ -144,8 +173,24 @@ const fileError = ref<string | null>(null);
 const isDragging = ref(false);
 const isUploading = ref(false);
 
+// manual_path is what the refresh pipeline actually reads (it has no WordPress
+// fallback), so expose it as an editable field. It is pre-filled on open,
+// auto-updated after a file upload, and can also be saved on its own.
+const manualPath = ref('');
+const savedManualPath = ref('');
+const isSavingPath = ref(false);
+
 const canSave = computed(
   () => !isUploading.value && !!selectedFile.value && !fileError.value,
+);
+
+const trimmedManualPath = computed(() => manualPath.value.trim());
+const canSavePath = computed(
+  () =>
+    !isUploading.value &&
+    !isSavingPath.value &&
+    trimmedManualPath.value.length > 0 &&
+    trimmedManualPath.value !== savedManualPath.value,
 );
 
 onMounted(async () => {
@@ -153,6 +198,8 @@ onMounted(async () => {
   try {
     const res = await getCurrentManual(props.jobId);
     currentManual.value = res.manual;
+    manualPath.value = res.manualPath ?? '';
+    savedManualPath.value = res.manualPath ?? '';
   } catch (err) {
     loadError.value =
       err instanceof Error ? err.message : 'Failed to load current manual.';
@@ -224,7 +271,7 @@ function onDrop(e: DragEvent) {
 }
 
 function onCloseRequest() {
-  if (isUploading.value) return;
+  if (isUploading.value || isSavingPath.value) return;
   emit('close');
 }
 
@@ -237,10 +284,15 @@ async function onSave() {
       currentManual.value = res.manual;
       emit('uploaded', res.manual);
     }
+    if (res.manualPath) {
+      manualPath.value = res.manualPath;
+      savedManualPath.value = res.manualPath;
+    }
     toast.add({
       severity: 'success',
       summary: 'Manual uploaded',
-      detail: 'The new manual has been saved and the WordPress product was updated.',
+      detail:
+        'The new manual was saved, the WordPress product was updated, and the manual path now points to it.',
       life: 4000,
     });
     emit('close');
@@ -254,6 +306,32 @@ async function onSave() {
     });
   } finally {
     isUploading.value = false;
+  }
+}
+
+async function onSavePath() {
+  if (!canSavePath.value) return;
+  isSavingPath.value = true;
+  try {
+    const res = await setManualPath(props.jobId, trimmedManualPath.value);
+    manualPath.value = res.manualPath;
+    savedManualPath.value = res.manualPath;
+    toast.add({
+      severity: 'success',
+      summary: 'Manual path saved',
+      detail: 'The refresh pipeline will use this path on the next run.',
+      life: 4000,
+    });
+  } catch (err) {
+    console.error('[UploadManualModal] save manual path failed', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Could not save manual path',
+      detail: err instanceof Error ? err.message : 'Failed to save the manual path.',
+      life: 6000,
+    });
+  } finally {
+    isSavingPath.value = false;
   }
 }
 </script>
@@ -355,6 +433,68 @@ async function onSave() {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin: 0;
+}
+
+.section-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.path-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.path-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-text);
+  background: var(--color-white);
+}
+
+.path-input:focus {
+  outline: none;
+  border-color: var(--color-brand);
+}
+
+.path-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-bg-section);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  white-space: nowrap;
+  background: var(--color-white);
+  color: var(--color-brand);
+  border: 1px solid var(--color-brand);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-accent-light);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
 }
 
 .status-row {
