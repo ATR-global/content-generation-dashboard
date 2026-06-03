@@ -76,7 +76,7 @@
               @click="openRedoConfirm"
             >
               <i class="pi pi-refresh"></i>
-              Redo Content ({{ selectedIds.length }})
+              Generate Content ({{ selectedIds.length }})
             </button>
             <button
               v-if="activeTab === 'for_review' && selectedIds.length > 0"
@@ -637,16 +637,17 @@
       </div>
     </div>
 
-    <!-- Redo Content Confirmation Modal -->
+    <!-- Generate Content Confirmation Modal -->
     <div v-if="showRedoConfirm" class="modal-overlay" @click.self="showRedoConfirm = false">
       <div class="confirm-panel confirm-panel--left">
         <div class="confirm-icon confirm-icon--redo">
           <i class="pi pi-refresh"></i>
         </div>
-        <h3 class="confirm-title">Redo Content</h3>
+        <h3 class="confirm-title">Generate Content</h3>
         <p class="confirm-text">
-          You are about to redo content generation for <strong>{{ selectedIds.length }}</strong>
-          {{ selectedIds.length === 1 ? 'item' : 'items' }}. The existing content will be recreated.
+          You are about to generate content for <strong>{{ selectedIds.length }}</strong>
+          {{ selectedIds.length === 1 ? 'item' : 'items' }}. Each job will be sent to the pipeline;
+          any existing content will be recreated.
         </p>
         <label class="confirm-skip-check">
           <input
@@ -676,7 +677,7 @@
         </label>
         <div class="confirm-actions">
           <button class="btn-ghost" @click="showRedoConfirm = false">Cancel</button>
-          <button class="btn-warning" @click="confirmRedo">Redo Content</button>
+          <button class="btn-warning" @click="confirmRedo">Generate Content</button>
         </div>
       </div>
     </div>
@@ -1031,7 +1032,7 @@ async function confirmRedo() {
     recordRecreations(submittedIds);
     toast.add({
       severity: 'success',
-      summary: 'Recreation queued',
+      summary: 'Content generation jobs queued',
       detail: `${submittedIds.length} ${submittedIds.length === 1 ? 'job has' : 'jobs have'} been sent to the pipeline. Track progress on the In Progress tab.`,
       life: 5000,
     });
@@ -1039,7 +1040,7 @@ async function confirmRedo() {
     console.error('[ContentRefreshedPage] bulk redo failed', err);
     toast.add({
       severity: 'error',
-      summary: 'Recreation failed',
+      summary: 'Content generation failed',
       detail: err instanceof Error ? err.message : 'Could not enqueue these jobs.',
       life: 6000,
     });
